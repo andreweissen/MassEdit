@@ -8,7 +8,7 @@
     "qqq": {
         "buttonScript": "Script name, used for tool button and modal header",
         "buttonClear": "The 'clear' button used to reset the modal fields",
-        "buttonClose": "The 'close' button used to close the moda",
+        "buttonClose": "The 'close' button used to close the modal",
         "buttonSubmit": "The 'submit' button used to perform an operation",
         "buttonResume": "The 'resume' button used to unpause a paused operation",
         "buttonPause": "The 'pause' button used to pause a running operation",
