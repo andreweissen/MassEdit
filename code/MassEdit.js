@@ -360,6 +360,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         SCRIPT: "MassEdit",
         STD_INTERVAL: 1500,
         BOT_INTERVAL: 750,
+        CACHE_VERSION: 1,
       }),
     }
   });
@@ -3168,7 +3169,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    */
   init.load = function () {
     if (++this.loaded === Object.keys(this.Dependencies.SCRIPTS).length) {
-      wk.dev.i18n.loadMessages(this.Utility.SCRIPT).then(init.main.bind(this));
+      wk.dev.i18n.loadMessages(this.Utility.SCRIPT, {
+        cacheVersion: this.Utility.CACHE_VERSION,
+      }).then(this.main.bind(this));
     }
   };
 
