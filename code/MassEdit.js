@@ -1,7 +1,7 @@
 /**
  * <nowiki>
  * MassEdit.js
- * @file Adds/deletes/replaces content from pages/categories/namespaces
+ * @file Add/replace pages/categories/namespaces, message users, or list pages
  * @author Eizen <dev.wikia.com/wiki/User_talk:Eizen>
  * @license CC-BY-SA 3.0
  * @external "mediawiki.util"
@@ -10,6 +10,29 @@
  * @external "jquery"
  * @external "mw"
  * @external "wikia.window"
+ * @external "wikia.nirvana"
+ */
+
+/**
+ * <pre>
+ * <em>Table of contents</em>        <em>Summary</em>
+ * - Prototype pseudo-enums          Storage for MassEdit utility constants
+ * - Setup pseudo-enums              Storage for <code>init</code> constants
+ * - Prototype Utility methods       General purpose helper functions
+ * - Prototype Dynamic Timer         Custom <code>setTimeout</code> iterator
+ * - Prototype Quicksort             Fast Quicksort algorithm for member pages
+ * - Prototype API methods           Assorted GET/POST handlers and page listers
+ * - Prototype Generator methods     Functionality methods to build page lists
+ * - Prototype Assembly methods      Methods returning <code>string</code> HTML
+ * - Prototype Modal methods         All methods related to displaying interface
+ *   - Utility methods               General modal-specific helper functions
+ *   - Preview methods               Methods related to the preview pseudo-scene
+ *   - Modal methods                 More general modal builders, handlers, etc.
+ * - Prototype Event handlers        Handlers for clicks of modal buttons
+ * - Prototype Pseudo-constructor    MassEdit <code>constructor</code> method
+ * - Setup Helper methods            Methods to validate user input
+ * - Setup Primary methods           Methods to load external dependencies
+ * </pre>
  */
 
 /*jslint browser, this:true */
@@ -17,7 +40,8 @@
 /*eslint-env es6 */
 /*eslint-disable */
 
-require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
+require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
+    function ($, mw, wk, nv) {
   "use strict";
 
   // Define extant global object config if needed
@@ -74,11 +98,11 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
      * @description This pseudo-enum of the <code>main</code> namespace object
      * is used to store all CSS selectors in a single place in the event that
      * one or more need to be changed. The formatting of the object literal key
-     * naming is type (id or class), location (placement, modal, content), and
-     * either the name for ids or the type of element (div, span, etc.).
-     * Originally, these were all divided into nested object literals as seen in
-     * Message.js. However, this system became too unreadable in the body of the
-     * script, necessitating a simpler system.
+     * naming is type (id or class), location (placement, modal, content,
+     * preview), and either the name for ids or the type of element (div, span,
+     * etc.). Originally, these were all divided into nested object literals as
+     * seen in Message.js. However, this system became too unreadable in the
+     * body of the script, necessitating a simpler system.
      *
      * @readonly
      * @enum {string}
@@ -98,25 +122,45 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
         ID_MODAL_SUBMIT: "massedit-modal-submit",
         ID_MODAL_TOGGLE: "massedit-modal-toggle",
         ID_MODAL_CANCEL: "massedit-modal-cancel",
+        ID_MODAL_PREVIEW: "massedit-modal-preview",
         ID_MODAL_CLEAR: "massedit-modal-clear",
         ID_MODAL_CLOSE: "massedit-modal-close",
 
         // Modal body ids
-        ID_CONTENT_CONTAINER: "massedit-content-container",
+        ID_CONTENT_REPLACE: "massedit-content-replace",
+        ID_CONTENT_ADD: "massedit-content-add",
+        ID_CONTENT_MESSAGE: "massedit-content-message",
+        ID_CONTENT_LIST: "massedit-content-list",
+        ID_CONTENT_PREVIEW: "massedit-content-preview",
+
         ID_CONTENT_FORM: "massedit-content-form",
         ID_CONTENT_FIELDSET: "massedit-content-fieldset",
         ID_CONTENT_CONTENT: "massedit-content-content",
-        ID_CONTENT_REPLACE: "massedit-content-replace",
+        ID_CONTENT_TARGET: "massedit-content-target",
         ID_CONTENT_INDICES: "massedit-content-indices",
         ID_CONTENT_PAGES: "massedit-content-pages",
         ID_CONTENT_SUMMARY: "massedit-content-summary",
+        ID_CONTENT_SCENE: "massedit-content-scene",
         ID_CONTENT_ACTION: "massedit-content-action",
         ID_CONTENT_TYPE: "massedit-content-type",
         ID_CONTENT_CASE: "massedit-content-case",
         ID_CONTENT_LOG: "massedit-content-log",
+        ID_CONTENT_BYLINE: "massedit-content-byline",
+        ID_CONTENT_BODY: "massedit-content-body",
+        ID_CONTENT_MEMBERS: "massedit-content-members",
+
+        // Preview modal elements
+        ID_PREVIEW_CONTAINER: "massedit-preview-container",
+        ID_PREVIEW_TITLE: "massedit-preview-title",
+        ID_PREVIEW_BODY: "massedit-preview-body",
+        ID_PREVIEW_CLOSE: "massedit-preview-close",
+        ID_PREVIEW_BUTTON: "massedit-preview-button",
 
         // Toolbar placement classes
         CLASS_PLACEMENT_OVERFLOW: "overflow",
+
+        // Preview classes
+        CLASS_PREVIEW_BUTTON: "massedit-preview-button",
 
         // Modal footer classes
         CLASS_MODAL_CONTAINER: "massedit-modal-container",
@@ -139,13 +183,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
 
     /**
      * @description This pseudo-enum of the <code>main</code> namespace object
-     * is used to store an array denoting which user groups are permitted to
-     * make use of the script. For the purposes of forstalling the use of the
-     * script for vandalism or spam, its use is limited to certain members of
-     * local staff, various global groups, and Fandom Staff. The major group
-     * prevented from using the script is the local <code>threadmoderator</code>
-     * group, as these can be viewed as standard users with /d and thread-
-     * specific abilities unaffected by MassEdit.
+     * is used to store a pair of arrays denoting which user groups are
+     * permitted to make use of the editing and messaging functionality (all
+     * users are permitted to generate lists). For the purposes of forstalling
+     * the use of the script for vandalism or spam, its use is limited to
+     * certain members of local staff, various global groups, and Fandom Staff.
+     * The only major local group prevented from using the editing function is
+     * the <code>threadmoderator</code> group, as these can be viewed as
+     * standard users with /d and thread-specific abilities. However, these
+     * users are permitted to make use of the mass-messaging functionality and
+     * can generate lists like other users.
      *
      * @readonly
      * @enum {Array<string>}
@@ -163,8 +210,14 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           "staff",
           "vstf",
           "helper",
-          "global-discussions-moderator",
+          "vanguard",
+          "wiki-manager",
+          "content-team-member",
           "content-volunteer",
+        ]),
+        CAN_MESSAGE: Object.freeze([
+          "global-discussions-moderator",
+          "threadmoderator",
         ]),
       }),
     },
@@ -190,6 +243,30 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
         FADE_INTERVAL: 1000,
         DELAY: 35000,
       }),
+    },
+
+    /**
+     * @description The <code>Scenes</code> pseudo-enum is used to store the
+     * <code>string</code> names of the four major operations supported by the
+     * MassEdit script, namely find-and-replace, append/prepend content, message
+     * users, and generation of page listings. These are used in the definition
+     * of certain element selectors and scene-specific elements, and their order
+     * is used to determine order in the main dropdown elements used to switch
+     * between scenes.
+     *
+     * @readonly
+     * @enum {Array<string>}
+     */
+    Scenes: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze([
+        "replace",  // Find-and-replace (1st scene, default)
+        "add",      // Append/prepend content (2nd scene)
+        "message",  // Mass-message users (3rd scene)
+        "list",     // List cat/ns members (4th scene)
+      ]),
     }
   });
 
@@ -224,6 +301,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           "dev.i18n": "u:dev:MediaWiki:I18n-js/code.js",
           "dev.placement": "u:dev:MediaWiki:Placement.js",
           "dev.modal": "u:dev:MediaWiki:Modal.js",
+          "dev.enablewallext": "u:dev:MediaWiki:WgMessageWallsExist.js",
         }),
         MODULES: Object.freeze([
           "mediawiki.util",
@@ -251,8 +329,8 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       configurable: false,
       value: Object.freeze({
         DEFAULTS: Object.freeze({
-          ELEMENT: "toolbar",
-          TYPE: "append",
+          ELEMENT: "tools",
+          TYPE: "prepend",
         }),
         VALID_TYPES: Object.freeze([
           "append",
@@ -287,7 +365,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   });
 
   /****************************************************************************/
-  /*                      Prototype utility methods                           */
+  /*                      Prototype Utility methods                           */
   /****************************************************************************/
 
   /**
@@ -337,7 +415,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * value. It is primarily used to determine if the user has inputted a proper
    * namespace number if mass editing by namespace.
    *
-   * @param {string|number} paramEntry
+   * @param {string|number} paramEntry - Namespace number
    * @returns {boolean} - Flag denoting the nature of the paramEntry
    */
   main.isInteger = function (paramEntry) {
@@ -361,14 +439,17 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   /**
    * @description This utility method is used to check whether the user
    * attempting to use the script is in the proper usergroup. Only certain local
-   * staff and members of select global groups are permitted the use of this
-   * script so as to prevent potential vandalism.
+   * staff and members of select global groups are permitted the use of the
+   * editing and messaging functionality so as to prevent potential vandalism,
+   * though any users are permitted to generate lists of category members.
    *
+   * @param {boolean} paramMessaging - Whether to include messaging groups
    * @return {boolean} - Flag denoting user's ability to use the script
    */
-  main.hasRights = function () {
-    return new RegExp(["(" + this.UserGroups.CAN_EDIT.join("|") + ")"].join("")
-      ).test(wk.wgUserGroups.join(" ")) && !mw.user.anonymous();
+  main.hasRights = function (paramMessaging) {
+    return new RegExp(["(" + this.UserGroups.CAN_EDIT.join("|") +
+      ((paramMessaging) ? "|" + this.UserGroups.CAN_MESSAGE.join("|") : "") +
+      ")"].join("")).test(wk.wgUserGroups.join(" "));
   };
 
   /**
@@ -387,7 +468,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * @param {boolean} paramIsCaseSensitive - If case sensitivity is desired
    * @param {string} paramTarget - Text to be replaced
    * @param {string} paramReplacement - Text to be inserted
-   * @param {Array<number>} paramInstances - Indices at which to replace
+   * @param {Array<number>} paramInstances - Indices at which to replace text
    * @returns {string} - An ammended <code>string</code>
    */
   main.replaceOccurrences = function (paramString, paramIsCaseSensitive,
@@ -398,7 +479,12 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
 
     // Definitions/sanitize params
     paramInstances = (paramInstances != null) ? paramInstances : [];
-    regex = new RegExp(paramTarget, (paramIsCaseSensitive) ? "g" : "gi");
+    regex = new RegExp(
+      paramTarget
+        .replace(/\r/gi, "")
+        .replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"),
+      ((paramIsCaseSensitive) ? "g" : "gi") + "m"
+    );
     counter = 0;
 
     // Replace all instances if no specific indices specified
@@ -526,8 +612,244 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   };
 
   /****************************************************************************/
+  /*                           Prototype Quicksort                            */
+  /****************************************************************************/
+
+  /**
+   * @description This implementation of the classic Quicksort algorithm is used
+   * to quickly sort through a listing of category or namespace member pages
+   * prior to iteration or display. Originally, the author went with the default
+   * <code>Array.prototype.sort</code> native code. However, after running speed
+   * tests between Chrome's V8 native implementation and a few custom Quicksort
+   * algorithms, the author decided to go with a custom implementation. Current
+   * speed tests for the native code generally result in sorting times of
+   * 700-900 ms for an array of 1,000,000 <code>number</code>s, while this
+   * custom implementation averages between 150-350 ms for the same data set.
+   *
+   * @param {Array<string>} paramArray - Array of <code>string</code>s
+   * @param {number} paramLeft - Parameter left index
+   * @param {number} paramRight - Parameter right index
+   * @returns {Array<string>} paramArray - Sorted array
+   */
+  main.sort = function self (paramArray, paramLeft, paramRight) {
+
+    // Declarations
+    var args, index;
+
+    // Convert to proper array
+    args = Array.prototype.slice.call(arguments);
+
+    // Failsafe to ensure all parameters have initial values
+    if (args.length === 1 && this.isThisAn("Array", args[0])) {
+      paramArray = args[0];
+      paramLeft = 0;
+      paramRight = paramArray.length - 1;
+    }
+
+    // Recursively partition and call self until sorted
+    if (paramArray.length) {
+      index = self.partition(paramArray, paramLeft, paramRight);
+
+      if (paramLeft < index - 1) {
+        self(paramArray, paramLeft, index - 1);
+      }
+
+      if (index < paramRight) {
+        self(paramArray, index, paramRight);
+      }
+    }
+
+    return paramArray;
+  };
+
+  /**
+   * @description One of two main helper functions of the Quicksort algorithm,
+   * <code>main.sort.swap</code> is used, as the name implies, to swap the
+   * elements included in the parameter array at the indices specified by
+   * <code>paramLeft</code> and <code>paramRight</code>. A temporary local
+   * variable, <code>swapped</code>, is used to faciliate the switch and store
+   * the left pointer's value while the element at the right index is assigned
+   * as the new left pointer's value.
+   *
+   * @param {Array<string>} paramArray - Array of <code>string</code>s
+   * @param {number} paramLeft - Parameter left array index
+   * @param {number} paramRight - Parameter right array index
+   * @returns {void}
+   */
+  main.sort.swap = function (paramArray, paramLeft, paramRight) {
+
+    // Declaration
+    var swapped;
+
+    // Temporarily store left pointer's value
+    swapped = paramArray[paramLeft];
+
+    // Set right pointer's value as new value at left index
+    paramArray[paramLeft] = paramArray[paramRight];
+
+    // Former left value now set to the right
+    paramArray[paramRight] = swapped;
+  };
+
+  /**
+   * @description The second of two such helper functions of the Quicksort
+   * algorithm, <code>main.sort.partition</code>,as its name implies, is used to
+   * divide the parameter array based on the values of the <code>number</code>
+   * index pointers. It is called often during <code>main.sort</code>'s set of
+   * divide-and-conquer recursive calls to further adjust the pointer values and
+   * swap values accordingly while the left pointer value is less than the right
+   * pointer index.
+   *
+   * @param {Array<string>} paramArray - Array of <code>string</code>s
+   * @param {number} paramLeft - Parameter left index
+   * @param {number} paramRight - Parameter right index
+   * @returns {number} leftPointer - Leftmost pointer index
+   */
+  main.sort.partition = function (paramArray, paramLeft, paramRight) {
+
+    // Declarations
+    var pivot, leftPointer, rightPointer;
+
+    // Middlemost pivot element
+    pivot = paramArray[Math.floor((paramLeft + paramRight) / 2)];
+
+    // Initial pointer definitions
+    leftPointer = paramLeft;
+    rightPointer = paramRight;
+
+    while (leftPointer <= rightPointer) {
+
+      // Adjust left pointer index
+      while (paramArray[leftPointer] < pivot) {
+        leftPointer++;
+      }
+
+      // Adjust right pointer index
+      while (paramArray[rightPointer] > pivot) {
+        rightPointer--;
+      }
+
+      // Switch the elements at the present point indices
+      if (leftPointer <= rightPointer) {
+        this.swap(paramArray, leftPointer++, rightPointer--);
+      }
+    }
+
+    // For use as "index" local var in main.sort
+    return leftPointer;
+  };
+
+  /****************************************************************************/
   /*                        Prototype API methods                             */
   /****************************************************************************/
+
+  /**
+   * @description As the name of the method implies, this Nirvana function is
+   * used to return data related to the user indicated by the parameter
+   * <code>string</code>. It's perhaps important to note that the method will
+   * return data about the user making the request if improper title characters
+   * are used in the query, making it important to check <code>string</code>s
+   * with <code>mw.Title.newFromText</code> or <code>wgLegalTitleChars</code>
+   * prior to invocation.
+   *
+   * @param {string} paramUsername - A <code>string</code> username
+   * @returns {object} - <code>$.Deferred</code> resolved promise
+   */
+  main.getUsernameData = function (paramUsername) {
+    return nv.getJson("UserProfilePage", "renderUserIdentityBox", {
+      title: paramUsername,
+    });
+  };
+
+  /**
+   * @description One of two such methods, this function is used to post an
+   * individual thread to the selected user's message wall. Returning a resolved
+   * <code>jQuery</code> promise, the function provides the data for testing and
+   * logging purposes on a successful edit and returns the associated error if
+   * the operation was unsuccessful. This function is called from within the
+   * main submission handler <code>main.handleSubmit</code>'s assorted
+   * <code>$.prototype.Deferred</code> handlers if message walls are enabled
+   * on-wiki.
+   *
+   * @param {object} paramConfig - <code>object</code> with varying properties
+   * @returns {object} - <code>$.Deferred</code> resolved promise
+   */
+  main.postMessageWallThread = function (paramConfig) {
+    return nv.postJson("WallExternal", "postNewMessage", $.extend(false, {
+      token: mw.user.tokens.get("editToken"),
+      pagenamespace: 1200,
+    }, paramConfig));
+  };
+
+  /**
+   * @description The second such method, this function is responsible for
+   * posting a new talk topic to the talk page of the selected user. Like the
+   * function above, it returns a resolved <code>jQuery</code> promise and
+   * provides the data for testing and logging purposes on success and the
+   * associated error on failed operations. It too is called from within the
+   * main submission handler <code>main.handleSubmit</code>'s assorted
+   * <code>$.prototype.Deferred</code> handlers if message walls are not enabled
+   * on the wiki in question.
+   *
+   * @param {object} paramConfig - <code>object</code> with varying properties
+   * @returns {object} - <code>$.Deferred</code> resolved promise
+   */
+  main.postTalkPageTopic = function (paramConfig) {
+    return $.ajax({
+      type: "POST",
+      url: mw.util.wikiScript("api"),
+      data: $.extend(false, {
+        token: mw.user.tokens.get("editToken"),
+        action: "edit",
+        section: "new",
+        format: "json",
+      }, paramConfig),
+    });
+  };
+
+  /**
+   * @description This function is one of two that handle the previewing of a
+   * formatted message, with this specific function used if message walls are
+   * enabled on the wiki. Like all of the data request functions in the script,
+   * it returns a resolved <code>jQuery</code> promise that provides the
+   * invoking handler <code>main.handlePreviewing</code> with the parsed
+   * contents of the message in question on successful preview operations or the
+   * associated error on failed operations.
+   *
+   * @param {string} paramBody - Content of the message
+   * @returns {object} - <code>$.Deferred</code> object
+   */
+  main.previewMessageWallThread = function (paramBody) {
+    return nv.postJson("WallExternal", "preview", {
+      body: paramBody,
+    });
+  };
+
+  /**
+   * @description Like its matched function above, this function is used to
+   * handle previewing of messages on wikis that do not have message walls
+   * enabled. Like the rest of the querying functions, this particular instance
+   * returns a resolved <code>jQuery</code> promise that provides the invoking
+   * handler function, namely <code>main.handlePreviewing</code>, with the
+   * parsed contents of the message in question returned on successful
+   * previewing operations or the relevant error on failed operations.
+   *
+   * @param {string} paramBody Content of the message
+   * @returns {object} - <code>$.Deferred</code> object
+   */
+  main.previewTalkPageTopic = function (paramBody) {
+    return $.ajax({
+      type: "POST",
+      url: mw.util.wikiScript("index"),
+      data: {
+        action: "ajax",
+        rs: "EditPageLayoutAjax",
+        page: "SpecialCustomEditPage",
+        method: "preview",
+        content: paramBody,
+      }
+    });
+  };
 
   /**
    * @description This function queries the API for member pages of a specific
@@ -639,16 +961,21 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     });
   };
 
+  /****************************************************************************/
+  /*                    Prototype Generator methods                           */
+  /****************************************************************************/
+
   /**
    * @description Originally a part of the <code>getMemberPages</code> function,
    * this method is used to return a <code>$>Deferred</code> object that passes
    * back either an error message for display in the modal status log or an
-   * array containing wellformed, formatted titles of pages, categories, or
-   * namespaces. If the type of entries contained with the parameter array is
-   * either loose pages or categories, the function checks that their titles are
-   * comprised of legal characters. If the type is namespace, it checks that the
-   * number passed is a legitimate integer. It also prepends the "Category:"
-   * namespace prefix in cases of categories.
+   * array containing wellformed titles of individual loose pages, categories,
+   * or namespaces. If the type of entries contained with the parameter array is
+   * either pages, usernames, or categories, the function checks that their
+   * titles are comprised of legal characters. If the type is namespace, it
+   * checks that the number passed is a legitimate integer. It also prepends the
+   * appropriate namespace prefix as applicable as denoted in
+   * <code>wgFormattedNamespaces</code>.
    * <br />
    * <br />
    * The function returns a <code>$.Deferred</code> promise instead of an array
@@ -660,22 +987,13 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * than helper functions like this and <code>getMemberPages</code>.
    *
    * @param {Array<string>} paramEntries - Array of pages/cats/ns
-   * @param {object} $paramType - $ object; loose page, category, or namespace
+   * @param {string} paramType - Either categories, loose pages, or namespaces
    * @returns {object} $deferred - Promise returned for use w/ <code>then</code>
    */
-  main.getValidatedEntries = function (paramEntries, $paramType) {
+  main.getValidatedEntries = function (paramEntries, paramType) {
 
     // Declarations
-    var i, n, entry, results, $deferred, isLoosePages, isCategories,
-      isNamespaces, categoryPrefix;
-
-    // Cache booleans
-    isLoosePages =
-      ($paramType.value === "pages") && ($paramType.selectedIndex === 1);
-    isCategories =
-      ($paramType.value === "categories") && ($paramType.selectedIndex === 2);
-    isNamespaces =
-      ($paramType.value === "namespaces") && ($paramType.selectedIndex === 3);
+    var i, n, entry, results, $deferred, prefix;
 
     // Returnable array of valid pages
     results = [];
@@ -683,39 +1001,149 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     // Returned $.Deferred
     $deferred = new $.Deferred();
 
-    // "Category:"
-    categoryPrefix = wk.wgFormattedNamespaces[14] + ":";
+    // Cats, user talks, and message walls get prefixes
+    prefix = wk.wgFormattedNamespaces[{
+      categories: 14,
+      namespaces: 0,
+    }[paramType]] || "";
 
     for (i = 0, n = paramEntries.length; i < n; i++) {
 
       // Cache value to prevent multiple map lookups
       entry = this.capitalize(paramEntries[i].trim());
 
-      // If category-based and entry name doesn't begin with "Category"
-      if (isCategories && !this.startsWith(entry, categoryPrefix)) {
-        entry = categoryPrefix + entry;
+      // If requires prefix but entry does not have prefix
+      if (!this.startsWith(entry, prefix)) {
+        entry = prefix + ":" + entry;
       }
 
       // If legal page/category name, push into names array
       if (
-        ((isCategories || isLoosePages) && this.isLegalInput(entry)) ||
-        (isNamespaces && this.isInteger(entry))
+        (paramType !== "namespaces" && this.isLegalInput(entry)) ||
+        (paramType === "namespaces" && this.isInteger(entry))
       ) {
         results.push(entry);
       } else {
-        // Error: Use of some characters is prohibited for security reasons.
-        return $deferred.reject("modalSecurity");
+        return $deferred.reject("logErrorSecurity");
       }
     }
 
     if (!results.length) {
-      // Error: No wellformed pages found
-      $deferred.reject("noMembers");
+      // Error: No wellformed pages exist to edit
+      $deferred.reject("logErrorNoWellformedPages");
     } else {
       $deferred.resolve(results);
     }
 
     return $deferred.promise();
+  };
+
+  /**
+   * @description This method is used during the user messaging operation to
+   * ensure that the user accounts being messaged actually exist so as to avoid
+   * the intentional or unintentional addition of messages to the walls/talk
+   * pages of nonexistant users. Future updates to this functionality may
+   * eventually include checks for users with edit counts of 0, indicating that
+   * the user in question exists but does not contribute to the wiki in on
+   * which the script is being used. In such cases, perhaps the username will be
+   * removed.
+   *
+   * @param {Array<string>} paramEntries - Array of usernames to check
+   * @returns {object} - $.Deferred promise object
+   */
+  main.getExtantUsernames = function (paramEntries) {
+
+    // Declarations
+    var counter, names, entries, $getUser, $getUsers, $addUser, $returnUsers,
+      wallPrefix, userPrefix;
+
+    // Definitions
+    $addUser = new $.Deferred();
+    $returnUsers = new $.Deferred();
+
+    // Iterator counter
+    counter = 0;
+
+    // Message Wall or User talk
+    wallPrefix = wk.wgFormattedNamespaces[
+      (this.utility.hasMessageWalls)
+        ? 1200
+        : 3
+    ] + ":";
+
+    // "User:"
+    userPrefix = wk.wgFormattedNamespaces[3] + ":";
+
+    // Array of extant usernames with prefix
+    names = [];
+    entries = [];
+
+    // Get wellformed, formatted namespace numbers or category names
+    $getUsers = this.getValidatedEntries(paramEntries);
+
+    // Once acquired, apply to names array or pass along rejection message
+    $getUsers.then(function (paramResults) {
+      names = paramResults;
+    }, $returnUsers.reject.bind($));
+
+    // Log paramResults
+    if (DEBUG) {
+      console.log(names);
+    }
+
+    // Indicate checking is in progress
+    $returnUsers.notify("logStatusCheckingUsernames");
+
+    // Iterate over provided list of usernames
+    this.utility.timer = this.setDynamicTimeout(function () {
+      if (counter === names.length) {
+
+        if (entries.length) {
+          // Return Quicksorted entries
+          return $returnUsers.resolve(this.sort(entries)).promise();
+        } else {
+          // Error: No wellformed pages exist to edit
+          return $returnUsers.reject("logErrorNoWellformedUsernames").promise();
+        }
+      }
+
+      // Acquire member pages of cat or ns
+      $getUser = $.when(this.getUsernameData(userPrefix + names[counter]));
+
+      // Once acquired, add pages to array
+      $getUser.always($addUser.notify);
+
+    }.bind(this), this.interval);
+
+    /**
+     * @description For each username of <code>paramEntries</code> that is
+     * checked, the <code>$.Deferred</code>'s <code>progress</code> handler is
+     * invoked to check the status of the username and determine if the related
+     * account actually exists. The status is then displayed to the user by
+     * means of a status log message passed to <code>handleSubmit</code> via
+     * <code>$returnUsers.notify</code>.
+     */
+    $addUser.progress(function (paramResults, paramStatus, paramXHR) {
+      if (DEBUG) {
+        console.log(paramResults, paramStatus, paramXHR);
+      }
+
+      if (paramStatus !== "success" || paramXHR.status !== 200) {
+        $returnUsers.notify("logErrorNoUserData", names[counter++]);
+        return this.utility.timer.iterate();
+      }
+
+      if (paramResults.user && paramResults.user.edits !== -1) {
+        $returnUsers.notify("logSuccessUserExists", names[counter]);
+        entries.push(wallPrefix + names[counter++]);
+      } else {
+        $returnUsers.notify("logErrorNoSuchPage", names[counter++]);
+      }
+
+      return this.utility.timer.iterate();
+    }.bind(this));
+
+    return $returnUsers.promise();
   };
 
   /**
@@ -739,14 +1167,14 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * API queries.
    *
    * @param {Array<string>} paramEntries - Array of user input pages
-   * @param {object} $paramType - <code>jQuery</code> object, cat or ns
+   * @param {string} paramType - <code>string</code> denoting cat or ns
    * @returns {object} $returnPages - $.Deferred promise object
    */
-  main.getMemberPages = function (paramEntries, $paramType) {
+  main.getMemberPages = function (paramEntries, paramType) {
 
     // Declarations
-    var i, n, names, data, entries, parameters, isCategories, isNamespaces,
-      counter, config, $getPages, $addPages, $getEntries, $returnPages;
+    var i, n, names, data, entries, parameters, counter, config, $getPages,
+      $addPages, $getEntries, $returnPages;
 
     // New pending Deferred objects
     $returnPages = new $.Deferred();
@@ -762,29 +1190,23 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     names = [];     // Store names of user entries
     entries = [];   // New entries to be returned
 
-    // Cached booleans
-    isCategories =
-      ($paramType.value === "categories") && ($paramType.selectedIndex === 2);
-    isNamespaces =
-      ($paramType.value === "namespaces") && ($paramType.selectedIndex === 3);
-
     config = {
-      2: {
+      categories: {
         query: "categorymembers",
         handler: "getCategoryMembers",
         continuer: "cmcontinue",
         target: "cmtitle",
       },
-      3: {
+      namespaces: {
         query: "allpages",
         handler: "getNamespaceMembers",
         continuer: "apfrom",
         target: "apnamespace",
       }
-    }[$paramType.selectedIndex];
+    }[paramType];
 
     // Get wellformed, formatted namespace numbers or category names
-    $getEntries = this.getValidatedEntries(paramEntries, $paramType);
+    $getEntries = this.getValidatedEntries(paramEntries, paramType);
 
     // Once acquired, apply to names array or pass along rejection message
     $getEntries.then(function (paramResults) {
@@ -792,15 +1214,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     }, $returnPages.reject.bind($));
 
     // Iterate over user input entries
-    this.timer = this.setDynamicTimeout(function () {
+    this.utility.timer = this.setDynamicTimeout(function () {
       if (counter === names.length) {
         $addPages.resolve();
 
         if (entries.length) {
-          return $returnPages.resolve(entries).promise();
+          // Return Quicksorted entries
+          return $returnPages.resolve(this.sort(entries)).promise();
         } else {
-          // Error: No wellformed pages found
-          return $returnPages.reject("noMembers").promise();
+          // Error: No wellformed pages exist to edit
+          return $returnPages.reject("logErrorNoWellformedPages").promise();
         }
       }
 
@@ -808,7 +1231,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       parameters[config.target] = names[counter];
 
       // Fetching member pages of $1
-      $returnPages.notify("fetchingMembers", names[counter]);
+      $returnPages.notify("logStatusFetchingMembers", names[counter]);
 
       // Acquire member pages of cat or ns
       $getPages = $.when(this[config.handler](parameters));
@@ -835,9 +1258,8 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       }
 
       if (paramStatus !== "success" || paramXHR.status !== 200) {
-        // Error: Unable to acquire pages of $1
-        $returnPages.notify("failedRequest", names[counter++]);
-        return this.timer.iterate();
+        $returnPages.notify("logErrorFailedFetch", names[counter++]);
+        return this.utility.timer.iterate();
       }
 
       // Define data
@@ -845,9 +1267,8 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
 
       // If page doesn't exist, add log entry and continue to next iteration
       if (data == null || data.length === 0) {
-        // Error: $1 does not exist.
-        $returnPages.notify("noSuchPage", names[counter++]);
-        return this.timer.iterate();
+        $returnPages.notify("logErrorNoSuchPage", names[counter++]);
+        return this.utility.timer.iterate();
       }
 
       // Add extant page titles to the appropriate submission property
@@ -868,14 +1289,14 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       }
 
       // On to the next iteration
-      return this.timer.iterate();
+      return this.utility.timer.iterate();
     }.bind(this));
 
     return $returnPages.promise();
   };
 
   /****************************************************************************/
-  /*                         Prototype assemblers                             */
+  /*                      Prototype Assembly methods                          */
   /****************************************************************************/
 
   /**
@@ -981,16 +1402,17 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * components in the modal content body. This function builds two types of
    * textfield, namely <code>input</code>s and <code>textarea</code>s. The
    * components may be disabled at creation via parameter <code>boolean</code>.
+   * The function also automatically assembles element selector names and
+   * I18n message titles as needed.
    *
    * @param {string} paramName - Name for message, id/classname generation
    * @param {string} paramType - <code>input</code> or <code>textarea</code>
-   * @param {boolean} paramIsDisabled - Whether to disable the node on creation
    * @returns {string} - Assembled <code>string</code> HTML
    */
-  main.assembleTextfield = function (paramName, paramType, paramIsDisabled) {
+  main.assembleTextfield = function (paramName, paramType) {
 
     // Declarations
-    var elementId, elementClass, message, attributes;
+    var elementId, elementClass, prefix, placeholder, title, attributes;
 
     // Sanitize parameters
     paramName = paramName.toLowerCase();
@@ -999,13 +1421,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     // Definitions
     elementId = "ID_CONTENT_" + paramName.toUpperCase();
     elementClass = "CLASS_CONTENT_" + paramType.toUpperCase();
-    message = "modal" + this.capitalize(paramName);
+
+    // Message definitions
+    prefix = "modal" + this.capitalize(paramName);
+    placeholder = prefix + "Placeholder";
+    title = prefix + "Title";
 
     attributes = {
       id: this.Selectors[elementId],
       class: this.Selectors[elementClass],
-      placeholder: this.i18n.msg(message + "Placeholder").plain(),
-      disabled: paramIsDisabled || false,
+      placeholder: this.i18n.msg(placeholder).plain(),
     };
 
     if (paramType === "input") {
@@ -1015,7 +1440,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     return this.assembleElement(
       ["div", {class: this.Selectors.CLASS_CONTENT_DIV},
         ["span", {class: this.Selectors.CLASS_CONTENT_SPAN},
-          this.i18n.msg(message + "Title").escape(),
+          this.i18n.msg(title).escape(),
         ],
         [paramType, attributes],
       ]
@@ -1027,31 +1452,36 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * functions used to automate the construction of several reoccuring
    * components in the modal content body. This function is used to build
    * dropdown menus from a default value and an array of required
-   * <code>option</code>s.
+   * <code>option</code>s. As with <code>assembleTextfield</code>, it also
+   * assembles element selector names and I18n message names for all elements.
+   * Per a recent update, the default dropdown option has been removed in favor
+   * of a default option denoted by the <code>paramIndex</code> parameter.
    *
    * @param {string} paramName - <code>string</code> name of the dropdown
-   * @param {string} paramDefault - First dropdown option (default)
    * @param {Array<string>} paramValues - Array of dropdown options
-   * @param {boolean} paramIsDisabled - Optional param denoting disabled status
+   * @param {number} paramIndex - Optional selected index
    * @returns {string} - Assembled <code>string</code> HTML
    */
-  main.assembleDropdown = function (paramName, paramDefault, paramValues,
-      paramIsDisabled) {
+  main.assembleDropdown = function (paramName, paramValues, paramIndex) {
 
     // Declarations
-    var i, n, titleMsg, options, value, selectId;
+    var i, n, titleMessage, optionMessage, prefix, options, value, attributes,
+      selectedIndex;
 
     // Sanitize input
     paramName = paramName.toLowerCase();
 
-    // Define select element ID
-    selectId = "ID_CONTENT_" + paramName.toUpperCase();
+    // Set parameter value or first option as index
+    selectedIndex = wk.parseInt(paramIndex, 10) || 0;
 
     // Listing of selectable dropdown options
     options = "";
 
-    // Message used in title and default dropdown option
-    titleMsg = this.i18n.msg(paramDefault).escape();
+    // Prefix used in title and default dropdown option
+    prefix = "modal" + this.capitalize(paramName);
+
+    // Message for span title
+    titleMessage = this.i18n.msg(prefix).escape();
 
     // Assemble array of HTML option strings
     for (i = 0, n = paramValues.length; i < n; i++) {
@@ -1059,9 +1489,22 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       // Sanitize parameter
       value = paramValues[i].toLowerCase();
 
+      // Option-specific message
+      optionMessage = prefix + this.capitalize(value);
+
+      // Attributes for option element
+      attributes = {
+        value: value,
+      };
+
+      // Choose which element to list as selected
+      if (i === selectedIndex) {
+        attributes.selected = "selected";
+      }
+
       options += this.assembleElement(
-        ["option", {value: value},
-          this.i18n.msg("dropdown" + this.capitalize(value)).escape(),
+        ["option", attributes,
+          this.i18n.msg(optionMessage).escape(),
         ]
       );
     }
@@ -1069,18 +1512,14 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     return this.assembleElement(
       ["div", {class: this.Selectors.CLASS_CONTENT_DIV},
         ["span", {class: this.Selectors.CLASS_CONTENT_SPAN},
-          titleMsg,
+          titleMessage,
         ],
         ["select", {
           size: "1",
           name: paramName,
-          id: this.Selectors[selectId],
+          id: this.Selectors["ID_CONTENT_" + paramName.toUpperCase()],
           class: this.Selectors.CLASS_CONTENT_SELECT,
-          disabled: paramIsDisabled || false,
         },
-          ["option", {selected: ""},
-           titleMsg,
-          ],
           options,
         ],
       ]
@@ -1088,8 +1527,115 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   };
 
   /****************************************************************************/
-  /*                        Prototype modal methods                           */
+  /*                        Prototype Modal methods                           */
   /****************************************************************************/
+
+  // Utility methods
+
+  /**
+   * @description This modal helper function is used simply to inject modal
+   * styling prior to the creation of the new <code>Modal</code> instance. It is
+   * used to style scene-specific elements as well as the messaging preview
+   * pseudo-scene displayed when the user attempts to parse the message content.
+   * While the styles could be stored in a separate, dedicated
+   * <code>MediaWiki:MassEdit/code.css</code> file on Dev, their inclusion here
+   * allows for fast adjustment of selector names without the hassle of editing
+   * the contents of multiple files. due to the use of a <code>Selectors</code>
+   * object collating all ids and classes evidenced in the modal in a single
+   * place.
+   *
+   * @returns {void}
+   */
+  main.injectModalStyles = function () {
+    mw.util.addCSS(
+      "." + this.Selectors.CLASS_CONTENT_CONTAINER + " {" +
+        "margin: auto !important;" +
+        "position: relative !important;" +
+        "width: 96% !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_CONTENT_SELECT + "," +
+      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + "," +
+      "." + this.Selectors.CLASS_CONTENT_INPUT + " {" +
+        "width: 99.6% !important;" +
+        "padding: 0 !important;" +
+        "resize: none !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + " {" +
+        "height: 45px !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_CONTENT_MESSAGE + " " +
+      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + "," +
+      "#" + this.Selectors.ID_CONTENT_LIST + " " +
+      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + " {" +
+        "height: 85px !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_CONTENT_ADD + " " +
+      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + " {" +
+        "height: 65px !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_CONTENT_LOG + " {" +
+        "height: 45px !important;" +
+        "width: 99.6% !important;" +
+        "border: 1px solid !important;" +
+        "font-family: monospace !important;" +
+        "background: #FFFFFF !important;" +
+        "color: #AEAEAE !important;" +
+        "overflow: auto !important;" +
+        "padding: 0 !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_MODAL_BUTTON + "{" +
+        "margin-left: 5px !important;" +
+        "font-size: 8pt !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_MODAL_LEFT + "{" +
+        "float: left !important;" +
+        "margin-left: 0px !important;" +
+        "margin-right: 5px !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_PREVIEW_CONTAINER + "{" +
+        "border: 1px solid currentColor !important;" +
+        "padding: 10px !important;" +
+        "overflow: auto !important;" +
+        "min-height: 250px !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_PREVIEW_BODY + " .pagetitle {" +
+        "display: none !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_PREVIEW_TITLE + " h2 {" +
+        "display: inline-block !important;" +
+      "}" +
+
+      "#" + this.Selectors.ID_PREVIEW_CLOSE + "{" +
+        "display: inline-block !important;" +
+        "float: right !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_PREVIEW_BUTTON + "{" +
+        "border: none !important;" +
+        "background: none !important;" +
+        "color: currentColor !important;" +
+        "cursor: pointer !important;" +
+      "}" +
+
+      "." + this.Selectors.CLASS_PREVIEW_BUTTON + ":hover," +
+      "." + this.Selectors.CLASS_PREVIEW_BUTTON + ":focus," +
+      "." + this.Selectors.CLASS_PREVIEW_BUTTON + ":active {" +
+        "outline: none !important;" +
+        "background: none !important;" +
+        "text-decoration: underline !important;" +
+      "}"
+    );
+  };
 
   /**
    * @description This one-size-fits-all helper function is used to log entries
@@ -1125,8 +1671,8 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   main.resetModal = function () {
 
     // Cancel the extant timer if applicable
-    if (this.timer && !this.timer.isComplete) {
-      this.timer.cancel();
+    if (this.utility.timer && !this.utility.timer.isComplete) {
+      this.utility.timer.cancel();
     }
 
     // Add log message if i18n parameters passed
@@ -1138,7 +1684,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     $("#" + this.Selectors.ID_CONTENT_FORM)[0].reset();
 
     // Re-enable modal buttons and fieldset
-    this.toggleModalComponentsDisable(false, "modal");
+    this.toggleModalComponentsDisable(false);
   };
 
   /**
@@ -1148,51 +1694,41 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * to either replace fields or the fieldset/modal buttons in order to prevent
    * illegitimate mid-edit changes to input. If the fieldset, etc. is disabled,
    * the method enables the buttons related to pausing and canceling the editing
-   * operation, and vice versa.
+   * operation, and vice versa. Likewise, the preview button is only displayed
+   * when the messaging scene is being viewed, and only when the editing
+   * operation is not running.
    *
    * @param {boolean} paramValue - Whether or not the form/fieldset is disabled
-   * @param {string} paramTargetGroup - Group to toggle ("modal" or "replace")
    * @returns {void}
    */
-  main.toggleModalComponentsDisable = function (paramValue, paramTargetGroup) {
+  main.toggleModalComponentsDisable = function (paramValue) {
 
     // Declarations
-    var i, n, groupSet, current;
+    var i, n, groupSet, current, $scene, isMessaging;
 
-    // Sanitize input
-    paramTargetGroup = paramTargetGroup.toLowerCase();
+    // Definitions
+    $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
+    isMessaging = ($scene.value === "message" && $scene.selectedIndex === 2);
 
     // Elements to disable/enable
-    groupSet = {
-      modal :[
-        {
-          target: "#" + this.Selectors.ID_CONTENT_FIELDSET,
-          value: paramValue,
-        },
-        {
-          target: "." + this.Selectors.CLASS_MODAL_OPTION,
-          value: paramValue,
-        },
-        {
-          target: "." + this.Selectors.CLASS_MODAL_TIMER,
-          value: !paramValue,
-        },
-      ],
-      replace: [
-        {
-          target: "#" + this.Selectors.ID_CONTENT_CASE,
-          value: paramValue,
-        },
-        {
-          target: "#" + this.Selectors.ID_CONTENT_REPLACE,
-          value: paramValue,
-        },
-        {
-          target: "#" + this.Selectors.ID_CONTENT_INDICES,
-          value: paramValue,
-        }
-      ]
-    }[paramTargetGroup];
+    groupSet = [
+      {
+        target: "#" + this.Selectors.ID_CONTENT_FIELDSET,
+        value: paramValue,
+      },
+      {
+        target: "." + this.Selectors.CLASS_MODAL_OPTION,
+        value: paramValue,
+      },
+      {
+        target: "." + this.Selectors.CLASS_MODAL_TIMER,
+        value: !paramValue,
+      },
+      {
+        target: "#" + this.Selectors.ID_MODAL_PREVIEW,
+        value: !isMessaging || paramValue,
+      },
+    ];
 
     for (i = 0, n = groupSet.length; i < n; i++) {
       current = groupSet[i];
@@ -1201,59 +1737,183 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     }
   };
 
+  // Preview methods
+
   /**
-   * @description This method calls <code>assembleElement</code> and its various
-   * specialized cousins to assemble the complete modal content body HTML in its
-   * <code>string</code> form. In previous incarnations of this script, this
-   * method would have simply returned a large <code>string</code> of
-   * preassembled HTML, this approach allows for a more readable design that
-   * can be more easily extended or expanded in future without the need to mess
-   * around with hardcoded HTML <code>string</code>s. The contents of this
-   * method are applied in the construction of the new <code>Modal</code> class
-   * instance in the body of <code>buildModal</code>.
+   * @description Like the similar modal method <code>attachModalEvents</code>,
+   * this function is invoked once the preview has been displayed to the user to
+   * ensure that all interactive elements are properly attached to their
+   * relevant listeners. It supports messages containing collapsible content and
+   * adds a relevant handler for the close button which removes the temporary
+   * preview container element and redisplays the message scene again once
+   * clicked.
    *
-   * @returns {string} - Assembled <code>string</code> HTML
+   * @returns {void}
    */
-  main.buildModalContent = function () {
+  main.attachPreviewEvents = function () {
 
     // Declarations
-    var i, j, m, n, object, arrays, data, elements;
+    var container, $button, $messaging;
 
-    // Dataset holding assembler name and set of arguments in array form
-    data = [
-      { // Assembles three dropdown menus
-        handler: "assembleDropdown",
-        parameterArrays: [
-          ["action", "modalSelect", ["prepend", "append", "replace"]],
-          ["type", "modalContentType", ["pages", "categories", "namespaces"]],
-          ["case", "modalCaseSensitivity", ["sensitive", "insensitive"], true],
-        ]
-      },
-      { // Assembles five textfields (3 textareas, 2 inputs)
-        handler: "assembleTextfield",
-        parameterArrays: [
-          ["replace", "textarea", true],
-          ["indices", "input", true],
-          ["content", "textarea"],
-          ["pages", "textarea"],
-          ["summary", "input"],
-        ]
-      }
-    ];
+    // Definitions
+    container = "#" + this.Selectors.ID_PREVIEW_CONTAINER;
+    $button = $("#" + this.Selectors.ID_PREVIEW_BUTTON);
+    $messaging = $("#" + this.Selectors.ID_CONTENT_MESSAGE);
 
-    // Using data array, create 5 textarea/inputs and 2 dropdowns as a string
-    elements = "";
-    for (i = 0, m = data.length; i < m; i++) {
-      object = data[i];
-      arrays = object.parameterArrays;
-      for (j = 0, n = arrays.length; j < n; j++) {
-        elements += this[object.handler].apply(this, arrays[j]);
-      }
+    // Support collapsibles
+    mw.hook("wikipage.content").fire(
+      // mw.util.$content[0].id vs mw.util.$content.selector
+      $(container + " #" + mw.util.$content[0].id));
+
+    // Fade out of preview on click
+    $button.on("click", this.handleClear.bind(this, {
+      before:
+        function () {
+          $(container).remove();
+          $messaging.show();
+        }.bind(this),
+      after: this.toggleModalComponentsDisable.bind(this, false)
+    }));
+  };
+
+  /**
+   * @description Like the similar modal builder <code>buildModalContent</code>,
+   * this function returns a <code>string</code> HTML framework for the message
+   * preview functionality to which the contents of the message and title are
+   * added. Rather than recreate this <code>string</code> each time the user
+   * wants to preview a new message, the contents of this function are stored to
+   * the <code>modal.preview</code> object property for caching and easier
+   * retrieval.
+   *
+   * @returns {string} - The assembled <code>string</code> of preview HTML
+   */
+  main.buildPreviewContent = function () {
+    return this.assembleElement(
+      ["div", {id: this.Selectors.ID_PREVIEW_CONTAINER},
+        ["div", {id: this.Selectors.ID_PREVIEW_TITLE},
+          ["h2", {},
+            "$1",
+          ],
+          ["div", {id: this.Selectors.ID_PREVIEW_CLOSE},
+            ["button", {
+              class: this.Selectors.CLASS_PREVIEW_BUTTON,
+              id: this.Selectors.ID_PREVIEW_BUTTON
+            },
+              "(" + this.i18n.msg("buttonClose").escape() + ")",
+            ]
+          ]
+        ],
+        ["hr"],
+        ["div", {id: this.Selectors.ID_PREVIEW_BODY},
+         "$2",
+        ],
+      ]
+    );
+  };
+
+  /**
+   * @description Like the similar modal function <code>displayModal</code>,
+   * this function is used to display the preview container in the messaging
+   * modal scene on presses of the "Preview" modal button. Rather than reset the
+   * contents of the modal itself by means of
+   * <code>Modal.prototype.setContent</code>, an action which would delete the
+   * data used to construct the preview and require that the user reenter the
+   * content on exiting out of the preview scene, this function instead hides
+   * the main messaging scene and appends a temporary <code>div</code> to the
+   * modal that is removed once the user closes the preview by means of the
+   * exit button.
+   *
+   * @param {string} paramBody - The contents of the message preview
+   * @returns {void}
+   */
+  main.displayPreview = function (paramBody) {
+
+    // Declarations
+    var $scene, contents, $byline, $messaging, $modal,isMessaging;
+
+    // Definitions
+    $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
+    $byline = $("#" + this.Selectors.ID_CONTENT_BYLINE).val();
+    $messaging = $("#" + this.Selectors.ID_CONTENT_MESSAGE);
+    $modal = $("#" + this.Selectors.ID_MODAL_CONTAINER + " > section");
+    isMessaging = ($scene.value === "message" && $scene.selectedIndex === 2);
+
+    // Ensure messaging scene is shown
+    if (!isMessaging || !this.modal.modal) {
+      return;
     }
 
+    // Preview modal scene contents
+    contents = ((this.modal.preview != null)
+      ? this.modal.scenes.preview
+      : this.modal.scenes.preview = this.buildPreviewContent()
+    ).replace("$1", $byline).replace("$2", paramBody);
+
+    // Log preview HTML
+    if (DEBUG) {
+      console.log("Preview contents: ", contents);
+    }
+
+    // Hide the messaging rather than reset the modal contents
+    $messaging.hide();
+
+    // Add the preview container
+    $modal.append(contents);
+  };
+
+  // Modal methods
+
+  /**
+   * @description As with the preview-specific function above, namely
+   * <code>attachPreviewEvents</code>, this function serves the purposes of
+   * ensuring that all interactive elements in the various modal scenes are
+   * provided their appropriate listeners. This function handles the disabling
+   * of various components based on the actions performed and invokes
+   * <code>jQuery.prototype.linksuggest</code> for various elements that may
+   * have wikitext link content on each scene change.
+   *
+   * @returns {void}
+   */
+  main.attachModalEvents = function () {
+
+    // Declarations
+    var i, n, field, elements;
+
+    // Define elements to linksuggest
+    elements = [
+      "ID_CONTENT_TARGET",    // Target replacement content
+      "ID_CONTENT_CONTENT",   // New content to be added
+      "ID_CONTENT_SUMMARY",   // Edit summary
+      "ID_CONTENT_BODY",      // Message body
+    ];
+
+    // Apply linksuggest to each element on focus event
+    for (i = 0, n = elements.length; i < n; i++) {
+      field = "#" + this.Selectors[elements[i]];
+
+      $(document).on("focus", field, $.prototype.linksuggest.bind($(field)));
+    }
+
+    // Disable certain components
+    this.toggleModalComponentsDisable(false);
+  };
+
+  /**
+   * @description As with the similar preview-specific function
+   * <code>buildPreviewContent</code>, this method builds a <code>string</code>
+   * HTML framework to which will be added scene-specific element selectors and
+   * body content. As with <code>buildPreviewContent</code>, this content is
+   * only created once within the body of <code>buildModalScenes</code>, its
+   * value cached in a local variable for use with all scenes requiring
+   * assembly and used in conjunction with <code>String.prototype.replace</code>
+   * to make scene-specific adjustments.
+   *
+   * @returns {string} - Assembled HTML string framework
+   */
+  main.buildModalContent = function () {
     return this.assembleElement(
       ["section", {
-        id: this.Selectors.ID_CONTENT_CONTAINER,
+        id: "$1",
         class: this.Selectors.CLASS_CONTENT_CONTAINER,
       },
         ["form", {
@@ -1261,7 +1921,8 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           class: this.Selectors.CLASS_CONTENT_FORM,
         },
           ["fieldset", {id: this.Selectors.ID_CONTENT_FIELDSET},
-            elements,
+            "$2",
+            "$3",
           ],
           ["hr"],
         ],
@@ -1279,67 +1940,177 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   };
 
   /**
-   * @description This method is used both to inject the requisite CSS styling
-   * governing the appearance of the modal and to build a new <code>Modal</code>
-   * class instance itself. While the styles could be stored in a dedicated
-   * <code>.css</code> file on Dev, keeping them here would more easily handle
-   * selector name changes due to the use of a <code>selectors</code> object
-   * collating all ids and classes evidenced in the modal in a single place.
+   * @description This function is used to assemble the four main so-called
+   * "scenes" that make up the body content of the <code>Modal</code> instance.
+   * Originally made up of four methods, each handling its respective scene,
+   * this method handles the creation of all scene <code>string</code> HTML
+   * during <code>Modal</code> assembly, ensuring that all content is ready for
+   * display on the user's interaction with the module dropdown menu. The
+   * assembled contents are then stored in the <code>modal</code> class instance
+   * variable <code>scenes</code> for use throughout the script without the need
+   * to reassemble their contents each time the scene changes.
+   * <br />
+   * <br />
+   * Unfortunately, the function runs at O(n ^ 3) time in the assembly of all
+   * required scenes. The author has considered revamping this function and only
+   * creating scenes when the user requests a scene change by means of the
+   * aforementioned scene dropdown menu, caching each new scene once created in
+   * the relevant instance variable object.
+   *
+   * @returns {object} this.modal.scenes - Reference to instance variable prop
+   */
+  main.buildModalScenes = function () {
+
+    // Declarations
+    var i, j, k, m, n, o, framework, scene, defaultArgs, dropdownArgs, data,
+      elements, object, arrays;
+
+    // Define scenes object
+    this.modal.scenes = {};
+
+    // Default arguments
+    defaultArgs = ["scene", this.Scenes];
+
+    data = [
+      [ // Replace
+        {
+          handler: "assembleDropdown",
+          parameterArrays: [
+            ["type", ["pages", "categories", "namespaces"]],
+            ["case", ["sensitive", "insensitive"]],
+          ]
+        },
+        {
+          handler: "assembleTextfield",
+          parameterArrays: [
+            ["target", "textarea"],
+            ["indices", "input"],
+            ["content", "textarea"],
+            ["pages", "textarea"],
+            ["summary", "input"],
+          ]
+        }
+      ],
+      [ // Addition
+        {
+          handler: "assembleDropdown",
+          parameterArrays: [
+            ["action", ["prepend", "append"]],
+            ["type", ["pages", "categories", "namespaces"]]
+          ]
+        },
+        {
+          handler: "assembleTextfield",
+          parameterArrays: [
+            ["content", "textarea"],
+            ["pages", "textarea"],
+            ["summary", "input"],
+          ]
+        }
+      ],
+      [ // Messaging
+        {
+          handler: "assembleTextfield",
+          parameterArrays: [
+            ["pages", "textarea"],
+            ["byline", "input"],
+            ["body", "textarea"],
+          ]
+        }
+      ],
+      [ // Listing
+        {
+          handler: "assembleDropdown",
+          parameterArrays: [
+            ["type", ["categories", "namespaces"]]
+          ]
+        },
+        {
+          handler: "assembleTextfield",
+          parameterArrays: [
+            ["pages", "textarea"],
+            ["members", "textarea"],
+          ]
+        }
+      ]
+    ];
+
+    // Basic modal form framework
+    framework = this.buildModalContent();
+
+    for (i = 0, n = this.Scenes.length; i < n; i++) {
+
+      // Internal definitions
+      scene = this.Scenes[i];
+
+      // New scene object
+      this.modal.scenes[scene] = {};
+
+      // Make copy of defaults and add the index
+      dropdownArgs = $.merge($.merge([], defaultArgs), [i]);
+
+      // New defaultArgs object logged
+      if (DEBUG) {
+        console.log(dropdownArgs);
+      }
+
+      // Init string HTML
+      elements = "";
+
+      // Make it O(n^3) - go big or go home
+      for (j = 0, m = data[i].length; j < m; j++) {
+        object = data[i][j];
+        arrays = object.parameterArrays;
+        for (k = 0, o = arrays.length; k < o; k++) {
+          elements += this[object.handler].apply(this, arrays[k]);
+        }
+      }
+
+      // Make use of modal framework to insert scene-specific HTML
+      this.modal.scenes[scene] =
+        framework
+          .replace("$1", this.Selectors["ID_CONTENT_" + scene.toUpperCase()])
+          .replace("$2", this.assembleDropdown.apply(this, dropdownArgs))
+          .replace("$3", elements);
+    }
+
+    // Log instance variable modal's scenes property
+    if (DEBUG) {
+      console.log("modal.scenes:", this.modal.scenes);
+    }
+
+    // Return reference for use in buildModal
+    return this.modal.scenes;
+  };
+
+  /**
+   * @description This method is used to create a new <code>Modal</code>
+   * instance that serves as the primary interface of the script. It sets all
+   * click events, defines all modal <code>footer</code> buttons in the modal,
+   * and assembles all the so-called "scenes" related to the various operations
+   * supported by MassEdit. Originally, this function also injected the modal
+   * CSS styling prior to creation of the modal, though for the purposes of
+   * ensuring single responsibility for all functions, the styling was moved
+   * into a separate function, namely <code>injectModalStyles</code>.
    *
    * @returns {object} - A new <code>Modal</code> instance
    */
   main.buildModal = function () {
-    mw.util.addCSS(
-      "." + this.Selectors.CLASS_CONTENT_CONTAINER + " {" +
-        "margin: auto;" +
-        "position: relative;" +
-        "width: 96%;" +
-      "}" +
-      "." + this.Selectors.CLASS_CONTENT_SELECT + "," +
-      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + "," +
-      "." + this.Selectors.CLASS_CONTENT_INPUT + " {" +
-        "width: 99.6%;" +
-        "padding: 0;" +
-        "resize: none;" +
-      "}" +
-      "." + this.Selectors.CLASS_CONTENT_TEXTAREA + " {" +
-        "height: 45px;" +
-      "}" +
-      "#" + this.Selectors.ID_CONTENT_LOG + " {" +
-        "height: 45px;" +
-        "width: 99.6%;" +
-        "border: 1px solid;" +
-        "font-family: monospace;" +
-        "background: #FFFFFF;" +
-        "color: #AEAEAE;" +
-        "overflow: auto;" +
-        "padding: 0;" +
-      "}" +
-      "." + this.Selectors.CLASS_MODAL_BUTTON + "{" +
-        "margin-left: 5px !important;" +
-        "font-size: 8pt;" +
-      "}" +
-      "." + this.Selectors.CLASS_MODAL_LEFT + "{" +
-        "float: left !important;" +
-        "margin-left: 0px !important;" +
-        "margin-right: 5px;" +
-      "}"
-    );
-
     return new wk.dev.modal.Modal({
-      content: this.buildModalContent(),
+      content: this.buildModalScenes()[this.Scenes[0]], // 1st scene is default
       id: this.Selectors.ID_MODAL_CONTAINER,
       size: "medium",
-      title: this.i18n.msg("itemTitle").escape(),
+      title: this.i18n.msg("buttonScript").escape(),
       events: {
         submit: this.handleSubmit.bind(this),
         toggle: this.handleToggle.bind(this),
+        preview: this.handlePreviewing.bind(this),
         clear: this.handleClear.bind(this),
         cancel: this.handleCancel.bind(this),
       },
       buttons: [
         {
-          text: this.i18n.msg("buttonSubmit").escape(), // Submit
+          text: this.i18n.msg("buttonSubmit").escape(),
           event: "submit",
           primary: true,
           id: this.Selectors.ID_MODAL_SUBMIT,
@@ -1349,10 +2120,10 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           ],
         },
         {
-          text: this.i18n.msg("buttonPause").escape(), // Pause
+          text: this.i18n.msg("buttonPause").escape(),
           event: "toggle",
-          disabled: true,
           primary: true,
+          disabled: true,
           id: this.Selectors.ID_MODAL_TOGGLE,
           classes: [
             this.Selectors.CLASS_MODAL_BUTTON,
@@ -1360,10 +2131,10 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           ],
         },
         {
-          text: this.i18n.msg("buttonCancel").escape(), // Cancel
+          text: this.i18n.msg("buttonCancel").escape(),
           event: "cancel",
-          disabled: true,
           primary: true,
+          disabled: true,
           id: this.Selectors.ID_MODAL_CANCEL,
           classes: [
             this.Selectors.CLASS_MODAL_BUTTON,
@@ -1371,7 +2142,17 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           ],
         },
         {
-          text: this.i18n.msg("buttonClose").escape(), // Close
+          text: this.i18n.msg("buttonPreview").escape(),
+          event: "preview",
+          primary: true,
+          disabled: true,
+          id: this.Selectors.ID_MODAL_PREVIEW,
+          classes: [
+            this.Selectors.CLASS_MODAL_BUTTON,
+          ],
+        },
+        {
+          text: this.i18n.msg("buttonClose").escape(),
           event: "close",
           id: this.Selectors.ID_MODAL_CLOSE,
           classes: [
@@ -1381,7 +2162,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
           ],
         },
         {
-          text: this.i18n.msg("buttonClear").escape(), // Clear
+          text: this.i18n.msg("buttonClear").escape(),
           event: "clear",
           id: this.Selectors.ID_MODAL_CLEAR,
           classes: [
@@ -1406,63 +2187,44 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * <br />
    * Once all listeners have been attached, the new modal is displayed to the
    * user. If the modal has been assembled prior to method invocation, the
-   * instance is displayed to the user and the method exited.
+   * instance is displayed to the user and the method exits.
    *
    * @returns {void}
    */
   main.displayModal = function () {
-    if (this.modal != null) {
-      this.modal.show();
+    if (this.modal.modal != null) {
+      this.modal.modal.show();
       return;
     }
 
-    // Declarations
-    var i, n, current, elementsForLinksuggest, actionId, isReplace;
-
-    elementsForLinksuggest = [
-      this.Selectors.ID_CONTENT_CONTENT, // New content to be added
-      this.Selectors.ID_CONTENT_SUMMARY, // Edit summary
-    ];
-
-    // Temp alias
-    actionId = "#" + this.Selectors.ID_CONTENT_ACTION;
+    // Apply modal CSS styles prior to creation
+    this.injectModalStyles();
 
     // Construct new Modal instance
-    this.modal = this.buildModal();
+    this.modal.modal = this.buildModal();
 
     // Create, then apply all relevant listeners
-    this.modal.create().then(function () {
+    this.modal.modal.create().then(function () {
 
-      // Apply linksuggest to each element on focus event
-      for (i = 0, n = elementsForLinksuggest.length; i < n; i++) {
-        current = "#" + elementsForLinksuggest[i];
+      // Apply initial linksuggest
+      this.attachModalEvents();
 
-        $(document).on("focus", current,
-          $.prototype.linksuggest.bind($(current)));
-      }
-
-      // Enable replace textarea  + input if replace option selected in dropdown
-      $(document).on("change", actionId, function () {
-        isReplace = ($(actionId).val() === "replace");
-
-        if (DEBUG) {
-          console.log(isReplace);
-        }
-
-        this.toggleModalComponentsDisable(!isReplace, "replace");
-      }.bind(this));
+      // Change scene depending on user needs
+      $(document).on("change", "#" + this.Selectors.ID_CONTENT_SCENE,
+        this.handleClear.bind(this, true));
 
       // Once events are set, display the modal
-      this.modal.show();
+      this.modal.modal.show();
     }.bind(this));
 
+    // Log modal instance variable
     if (DEBUG) {
-      console.dir(this.modal);
+      console.log("this.modal: ", this.modal);
     }
   };
 
   /****************************************************************************/
-  /*                      Prototype event handlers                            */
+  /*                      Prototype Event handlers                            */
   /****************************************************************************/
 
   /**
@@ -1484,88 +2246,126 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * <code>$.Deferred</code> promises to coordinate the necessary acquisition of
    * wellformed pages for editing. In cases of categories/namespaces, member
    * pages are retrieved and added to the editing queue for processing.
+   * <br />
+   * <br />
+   * As of the latest update implementing additional editing functionality, this
+   * method was temporarily separated into four separate methods related to each
+   * of the four scenes. However, as the same progression of sanitizing input,
+   * acquiring pages, iterating over pages, and logging accordingly was
+   * evidenced in all operations, these handlers were once again merged into
+   * this single method to prevent copious amounts of copy/pasta. The only
+   * operation that exits early and does not iterate is the listing operation,
+   * which merely acquires lists of category members and prepends them to an
+   * element.
    *
    * @returns {void}
    */
   main.handleSubmit = function () {
-    if (this.timer && !this.timer.isComplete) {
+    if (this.utility.timer && !this.utility.timer.isComplete) {
       if (DEBUG) {
-        console.dir(this.timer);
+        console.dir(this.utility.timer);
       }
       return;
     }
 
     // Declarations
-    var $action, $type, $case, $content, $replace, $indices, indices, $pages,
-      pages, $summary, counter, parameters, data, pageIndex, newText, $getPages,
-      $postPages, $getNextPage, $getPageContent, $postPageContent, error,
-      isCaseSensitive, isFindAndReplace;
+    var $action, $type, $case, $content, $target, $indices, indices, $pages,
+      pages, $byline, $summary, counter, config, data, pageIndex, newText,
+      $getPages, $postPages, $getNextPage, $getPageContent, $postPageContent,
+      error, $scene, isCaseSensitive, isReplace, isAddition, isMessaging,
+      isListing, $members, $selected, $body, pagesType;
 
-    // Grab user input
+    // Dropdowns
+    $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
     $action = $("#" + this.Selectors.ID_CONTENT_ACTION)[0];
     $type = $("#" + this.Selectors.ID_CONTENT_TYPE)[0];
     $case = $("#" + this.Selectors.ID_CONTENT_CASE)[0];
-    $replace = $("#" + this.Selectors.ID_CONTENT_REPLACE).val();
+
+    // Textareas/inputs
+    $target = $("#" + this.Selectors.ID_CONTENT_TARGET).val();
     $indices = $("#" + this.Selectors.ID_CONTENT_INDICES).val();
     $content = $("#" + this.Selectors.ID_CONTENT_CONTENT).val();
     $pages = $("#" + this.Selectors.ID_CONTENT_PAGES).val();
     $summary = $("#" + this.Selectors.ID_CONTENT_SUMMARY).val();
 
-    // Cache frequently used boolean flag
-    isFindAndReplace = ($action.value === "replace" &&
-      $action.selectedIndex === 3);
+    // For acquiring text of selected option
+    $selected = $("#" + this.Selectors.ID_CONTENT_TYPE + " option:selected");
+
+    // Messaging exclusives
+    $body = $("#" + this.Selectors.ID_CONTENT_BODY).val();
+    $byline = $("#" + this.Selectors.ID_CONTENT_BYLINE).val();
+
+    // Listing exclusive
+    $members = $("#" + this.Selectors.ID_CONTENT_MEMBERS);
+
+    // Cache frequently used boolean flags
+    isReplace =
+      ($scene.value === "replace" && $scene.selectedIndex === 0);
+    isAddition =
+      ($scene.value === "add" && $scene.selectedIndex === 1);
+    isMessaging =
+      ($scene.value === "message" && $scene.selectedIndex === 2);
+    isListing =
+      ($scene.value === "list" && $scene.selectedIndex === 3);
+
+    // Substitute for $1 in logErrorNoPages
+    pagesType = ((isMessaging)
+      ? this.i18n.msg("modalTypeUsernames").escape()
+      : $selected.text()).toLowerCase();
+
+    // If no scene selected (should not happen)
+    if (!isReplace && !isAddition && !isMessaging && !isListing) {
+      return;
 
     // Is not in the proper rights group
-    if (!this.hasRights()) {
+    } else if (!isListing && !this.hasRights(isMessaging)) {
       this.resetModal();
+      this.addModalLogEntry("logErrorUserRights");
+      return;
 
-      // Error: Incorrect user rights group.
-      this.addModalLogEntry("modalUserRights");
+    // Is either append/prepend with no content input included
+    } else if (isAddition && !$content) {
+      this.addModalLogEntry("logErrorNoContent");
+      return;
+
+    // Is find-and-replace with no target content included
+    } else if (isReplace && !$target) {
+      this.addModalLogEntry("logErrorNoTarget");
       return;
 
     // No pages included
     } else if (!$pages) {
-
-      // Error: No pages content entered.
-      this.addModalLogEntry("noPages");
-      return;
-
-    // Is either append/prepend with no content input included
-    } else if (!isFindAndReplace && !$content) {
-
-      // Error: No content entered.
-      this.addModalLogEntry("noContent");
-      return;
-
-    // Is find-and-replace with no target content included
-    } else if (isFindAndReplace && !$replace) {
-
-      // Error: No target content entered.
-      this.addModalLogEntry("noTarget");
+      this.addModalLogEntry("logErrorNoPages", pagesType);
       return;
 
     // If edit summary is greater than permitted max of 800 characters
-    } else if ($summary.length > this.Utility.MAX_SUMMARY_CHARS) {
-
-      // Error: Edit summary exceeds maximum character limit.
-      this.addModalLogEntry("overlongSummary");
+    } else if ($summary && $summary.length > this.Utility.MAX_SUMMARY_CHARS) {
+      this.addModalLogEntry("logErrorOverlongSummary");
       return;
 
-    // If user forgot to select dropdown options (no reset b/c annoying)
-    } else if ($action.selectedIndex === 0 || $type.selectedIndex === 0 ||
-        (isFindAndReplace && $case.selectedIndex === 0)) {
+    // If message title is not legal
+    } else if (isMessaging && !this.isLegalInput($byline)) {
+      this.addModalLogEntry("logErrorSecurity");
+      return;
 
-      // Error: Please select an action to perform before submitting.
-      this.addModalLogEntry("noOptionSelected");
+    // If no message body is included
+    } else if (isMessaging && !$body) {
+      this.addModalLogEntry("logErrorMissingBody");
       return;
     }
 
-    // Editing...
-    this.addModalLogEntry("loading");
-    this.toggleModalComponentsDisable(true, "modal");
+    // Status log message, scene-dependent
+    this.addModalLogEntry(
+      (isReplace || isAddition)
+        ? "logStatusEditing"
+        : (isMessaging)
+          ? "logStatusMessaging"
+          : "logStatusGenerating"
+    );
+    this.toggleModalComponentsDisable(true);
 
     // Find-and-replace specific variable definitions
-    if (isFindAndReplace) {
+    if (isReplace) {
 
       // Only wellformed integers should be included as f-n-r indices
       indices = $indices.split(",").map(function (paramEntry) {
@@ -1574,41 +2374,87 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
         }
       }.bind(this)).filter(function (paramEntry) {
         return paramEntry != null; // Avoid cases of [undefined]
-      }.bind(this));
+      });
 
       // Whether not search and replace is case sensitive
-      isCaseSensitive = ($case.selectedIndex === 1 &&
+      isCaseSensitive = ($case.selectedIndex === 0 &&
         $case.value === "sensitive");
     }
 
     // Array of pages/categories/namespaces
-    pages = $pages.split(/[\n]+/);
+    pages = $pages.split(/[\n]+/).filter(function (paramEntry) {
+      return paramEntry !== "";
+    });
 
     // Page counter for setInterval
     counter = 0;
 
     // Default page editing parameters
-    parameters = {
-      summary: $summary,
-    };
+    config = {};
 
     // New pending status Deferreds
     $postPages = new $.Deferred();
     $getNextPage = new $.Deferred();
 
-    // Get a listing of wellformed pages
-    $getPages = this[($type.selectedIndex === 1)
-      ? "getValidatedEntries"
-      : "getMemberPages"
-    ](pages, $type);
+    // Log flag for inspection
+    if (DEBUG) {
+      console.log("hasMessageWalls: ", this.utility.hasMessageWalls);
+    }
+
+    /**
+     * @description The <code>$getPages</code> <code>$.Deferred</code> is used
+     * to acquire either wellformed loose page titles or the titles of member
+     * pages belonging to input categories or namespaces. In cases of user
+     * messaging, the function makes use of <code>WgMessageWallsExist</code>
+     * functionality to determine whether the wiki on which the script is being
+     * used has enabled message walls. This knowledge is required as the prefix
+     * applied to username input will differ ("Message Wall:" vs "User talk:")
+     * accordingly. Similar functionality can be glimpsed in
+     * <code>handlePreview</code>.
+     */
+    $getPages = new $.Deferred(function ($paramOuter) {
+      new $.Deferred(function ($paramInner) {
+        (!isMessaging || this.utility.hasMessageWalls != null)
+          ? $paramInner.resolve().promise()
+          : wk.wgMessageWallsExist.then(
+              function () {
+                return $paramInner.resolve(true).promise();
+              }.bind(this),
+
+              function () {
+                return $paramInner.resolve(false).promise();
+              }.bind(this)
+            );
+      }.bind(this)).then(
+        function (paramHasWalls) {
+          if (paramHasWalls != null) {
+            this.utility.hasMessageWalls = paramHasWalls;
+          }
+
+          // Get list of wellformed pages/usernames or member pages
+          return this[
+            (isListing || (!isMessaging && $type.value !== "pages"))
+              ? "getMemberPages"
+              : (isMessaging)
+                ? "getExtantUsernames"
+                : "getValidatedEntries"
+          ](pages, ($type != null) ? $type.value : null);
+        }.bind(this)
+      ).then(
+        $paramOuter.resolve.bind($), // $getPages.done
+        $paramOuter.reject.bind($),  // $getPages.fail
+        $paramOuter.notify.bind($)   // $getPages.progress
+      );
+    }.bind(this));
 
     /**
      * @description The resolved <code>$getPages</code> returns an array of
      * loose pages from a namespace or category, or returns an array of checked
-     * loose pages if the individual pages option is selected. Once resolved,
-     * <code>$getPages</code> uses a <code>setDynamicTimeout</code> to iterate
-     * over the pages, optionally acquiring page content for find-and-replace.
-     * Once done, an invocation of <code>notify</code> calls
+     * loose pages if the individual pages option is selected or usenames are
+     * inputted. Once resolved, assuming the user is not simply generating a
+     * pages list, <code>$getPages</code> uses a <code>setDynamicTimeout</code>
+     * to iterate over the pages, optionally acquiring page content for
+     * find-and-replace. Once done, an invocation of <code>notify</code> calls
      * <code>$postPages.progress</code> to assemble the parameters needed to
      * edit the page in question. Once all pages have been edited, the pending
      * <code>$.Deferred</code>s are resolved and the timer exited.
@@ -1616,15 +2462,28 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     $getPages.done(function (paramResults) {
       pages = paramResults;
 
-      // Iterate over pages
-      this.timer = this.setDynamicTimeout(function () {
-        parameters.title = pages[counter];
+      // Log pages list (members or wellformed pages)
+      if (DEBUG) {
+        console.log("$getPages: ", pages);
+      }
 
+      // Listing activities end once members are acquired and shown to the user
+      if (isListing) {
+        // Add category members to textarea
+        $members.text(pages.join("\n"));
+
+        $getNextPage.resolve();
+        $postPages.resolve("logSuccessListingComplete");
+        return;
+      }
+
+      // Iterate over pages
+      this.utility.timer = this.setDynamicTimeout(function () {
         if (counter === pages.length) {
           $getNextPage.resolve();
-          $postPages.resolve("editSuccessComplete");
+          $postPages.resolve("logSuccessEditingComplete");
         } else {
-          $getPageContent = ($action.selectedIndex < 3)
+          $getPageContent = (!isReplace)
             ? new $.Deferred().resolve({}).promise()
             : this.getPageContent(pages[counter]);
 
@@ -1663,60 +2522,99 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     /**
      * @description The <code>progress</code> handler is used to extend the
      * <code>parameters</code> object with properties relevant to the action
-     * being performed (i.e. append/prepend or find-and-replace). Once complete,
+     * being performed (i.e. addition, replace, or messaging). Once complete,
      * the modified page content is committed and the edit made by means of
-     * <code>postPageContent</code>. Once the edit is complete and a resolved
-     * promise returned, <code>$postPageContent</code> pings the pending
-     * <code>$getNextPage</code> <code>$.Deferred</code> to log the relevant
-     * messages and iterate on to the next page to be edited.
+     * a scene-specific handler, namely either <code>postPageContent</code>,
+     * <code>postTalkPageTopic</code>, or <code>postMessageWallThread</code>.
+     * Once the edit is complete and a resolved promise returned,
+     * <code>$postPageContent</code> pings the pending <code>$getNextPage</code>
+     * <code>$.Deferred</code> to log the relevant messages and iterate on to
+     * the next page to be edited.
      */
     $postPages.progress(function (paramResults) {
       if (DEBUG) {
-        console.log(paramResults);
+        console.log("$postPages results: ", paramResults);
       }
 
-      if ($action.selectedIndex < 3) {
+      // Addition parameters
+      if (isAddition) {
+        config = {
+          handler: "postPageContent",
+          parameters: {
+            title: pages[counter],
+            token: mw.user.tokens.get("editToken"),
+            summary: $summary,
+          }
+        };
+
         // "appendtext" or "prependtext"
-        parameters[$action.value.toLowerCase() + "text"] = $content;
-        parameters.token = mw.user.tokens.get("editToken");
-      } else {
+        config.parameters[$action.value.toLowerCase() + "text"] = $content;
+
+      // Find-and-replace parameters
+      } else if (isReplace) {
         pageIndex = Object.keys(paramResults.query.pages)[0];
         data = paramResults.query.pages[pageIndex];
 
         // Return if page doesn't exist to the server
         if (pageIndex === "-1") {
-          // Error: $1 does not exist.
-          this.addModalLogEntry("noSuchPage", pages[counter++]);
-          return this.timer.iterate();
+          this.addModalLogEntry("logErrorNoSuchPage", pages[counter++]);
+          return this.utility.timer.iterate();
         }
 
-        // Set replace-specific properties
-        parameters.text = data.revisions[0]["*"];
-        parameters.basetimestamp = data.revisions[0].timestamp;
-        parameters.startimestamp = data.starttimestamp;
-        parameters.token = data.edittoken;
-
-        if (DEBUG) {
-          console.log(parameters.text, isCaseSensitive, $replace, $content,
-            indices);
-        }
+        config = {
+          handler: "postPageContent",
+          parameters: {
+            title: pages[counter],
+            text: data.revisions[0]["*"],
+            basetimestamp: data.revisions[0].timestamp,
+            startimestamp: data.starttimestamp,
+            token: data.edittoken,
+            summary: $summary,
+          }
+        };
 
         // Replace instances of chosen text with inputted new text
-        newText = this.replaceOccurrences(parameters.text, isCaseSensitive,
-          $replace, $content, indices);
+        newText = this.replaceOccurrences(config.parameters.text,
+          isCaseSensitive, $target, $content, indices);
 
         // Return if old & new revisions are identical in content
-        if (newText === parameters.text) {
+        if (newText === config.parameters.text) {
           // Error: No instances of $1 found in $2.
-          this.addModalLogEntry("noMatch", $replace, pages[counter++]);
-          return this.timer.iterate();
+          this.addModalLogEntry("logErrorNoMatch", $target, pages[counter++]);
+          return this.utility.timer.iterate();
         } else {
-          parameters.text = newText;
+          config.parameters.text = newText;
         }
+
+      // Messaging parameters
+      } else if (isMessaging) {
+        config = [
+          {
+            handler: "postTalkPageTopic",
+            parameters: {
+              sectiontitle: $byline,
+              text: $body,
+              title: pages[counter],
+            }
+          },
+          {
+            handler: "postMessageWallThread",
+            parameters: {
+              messagetitle: $byline,
+              body: $body,
+              pagetitle: pages[counter],
+            }
+          },
+        ][+this.utility.hasMessageWalls];
+      }
+
+      // Log all config handlers and parameters
+      if (DEBUG) {
+        console.log("Config: ", config);
       }
 
       // Deferred attached to posting of data
-      $postPageContent = this.postPageContent(parameters);
+      $postPageContent = this[config.handler](config.parameters);
       $postPageContent.always($getNextPage.notify);
 
     }.bind(this));
@@ -1734,31 +2632,168 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
      */
     $getNextPage.progress(function (paramData) {
       if (DEBUG) {
-        console.log(paramData);
+        console.log("$getNextPage results: ", paramData);
       }
 
       error = (paramData.error && paramData.error.code)
         ? paramData.error.code
         : "unknownerror";
 
-      if (paramData.edit && paramData.edit.result === "Success") {
-        // Success: $1 successfully edited!
-        this.addModalLogEntry("editSuccess", pages[counter++]);
+      // Success differs depending on status of message walls on wiki
+      if (
+        (
+          (!isMessaging || (isMessaging && !this.utility.hasMessageWalls)) &&
+          paramData.edit &&
+          paramData.edit.result === "Success"
+        ) ||
+        (
+          isMessaging && this.utility.hasMessageWalls && paramData.status
+        )
+      ) {
+        this.addModalLogEntry("logSuccessEditing", pages[counter++]);
       } else if (error === "ratelimited") {
-        // Error: Ratelimited. Editing delayed $1 seconds.
-        this.addModalLogEntry("editFailureRateLimited",
+
+        // Show ratelimit message with the delay in seconds
+        this.addModalLogEntry("logErrorRatelimited",
           (this.Utility.DELAY / 1000).toString());
 
         // Push the unedited page back on the stack
         pages.push(pages[counter++]);
       } else {
         // Error: $1 not edited. Please try again.
-        this.addModalLogEntry("editFailure", pages[counter++]);
+        this.addModalLogEntry("logErrorEditing", pages[counter++]);
       }
 
       // On to the next iteration
-      this.timer.iterate((error === "ratelimited") ? this.Utility.DELAY : null);
+      this.utility.timer.iterate(
+        (error === "ratelimited")
+          ? this.Utility.DELAY
+          : null
+      );
     }.bind(this));
+  };
+
+  /**
+   * @description This function serves as the primary event listener for presses
+   * of the "Preview" button available to users who are seeking to mass-message
+   * other users. From the end user's perspective, the button press should be
+   * met with the fading out of the messaging modal scene and the display of a
+   * parsed version of the title and associated message. On presses of the close
+   * button, the preview should fade out and be replaced by the messaging modal
+   * with all of the user's messaging input still displayed in the textfields.
+   * <br />
+   * <br />
+   * This function accomplishes this by checking the user's input and querying
+   * the database via <code>wgMessageWallsExist</code> to determine whether the
+   * wiki on which the script is being used has enabled message walls. Depending
+   * on this query, the methods used to render and display the preview will
+   * change though the end results will be the same. The function will fade in
+   * and out using <code>handleClear</code> and invoke the requisite
+   * <code>displayPreview</code> to show the preview <code>div</code> and
+   * <code>attachPreviewEvents</code> to handle collapsibles and other events.
+   *
+   * @returns {void}
+   */
+  main.handlePreviewing = function () {
+    if (this.utility.timer && !this.utility.timer.isComplete) {
+      if (DEBUG) {
+        console.dir(this.utility.timer);
+      }
+      return;
+    }
+
+    // Declarations
+    var $scene, $byline, $body, isMessaging, $previewMessage;
+
+    // Definitions
+    $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
+    $byline = $("#" + this.Selectors.ID_CONTENT_BYLINE).val();
+    $body = $("#" + this.Selectors.ID_CONTENT_BODY).val();
+    isMessaging = ($scene.value === "message" && $scene.selectedIndex === 2);
+
+    // Just in case...
+    if (!isMessaging) {
+      return;
+    }
+
+    // Check for title
+    if (!$byline) {
+      this.addModalLogEntry("logErrorMissingByline");
+      return;
+
+    // Check for body content
+    } else if (!$body) {
+      this.addModalLogEntry("logErrorMissingBody");
+      return;
+    }
+
+    /**
+     * @description <code>$previewMessage</code> handles the acquisition of
+     * parsed HTML content related to the user's input message body and title.
+     * Naturally, in order to ensure that the proper API methods are invoked,
+     * the script must determine if the wiki on which MassEdit is being used
+     * has enabled message walls. Once the proper method has been invoked, the
+     * resultant <code>object</code> containing the message body HTML is passed
+     * to <code>$previewMessage.done</code>.
+     */
+    $previewMessage = new $.Deferred(function ($paramOuter) {
+      new $.Deferred(function ($paramInner) {
+        (this.utility.hasMessageWalls != null)
+          ? $paramInner.resolve(this.utility.hasMessageWalls).promise()
+          : wk.wgMessageWallsExist.then(
+              function () {
+                return $paramInner.resolve(true).promise();
+              }.bind(this),
+
+              function () {
+                return $paramInner.resolve(false).promise();
+              }.bind(this)
+            );
+      }.bind(this)).then(
+        function (paramHasWalls) {
+          if (this.utility.hasMessageWalls == null) {
+            this.utility.hasMessageWalls = paramHasWalls;
+          }
+
+          return this[(paramHasWalls)
+            ? "previewMessageWallThread"
+            : "previewTalkPageTopic"
+          ]($body);
+        }.bind(this)
+      ).then(
+        $paramOuter.resolve.bind($), // $previewMessage.done
+        $paramOuter.reject.bind($)   // $previewMessage.fail
+      );
+    }.bind(this));
+
+    /**
+     * @description Upon successful completion of the preview request operation,
+     * the results are logged and the <code>handleClear</code> scene transition
+     * method invoked. In such cases, <code>displayPreview</code> is invoked
+     * following the fade out to hide the messaging scene and append a preview
+     * <code>div</code> and <code>attachPreviewEvents</code> is invoked
+     * following the post appending fade-in.
+     */
+    $previewMessage.done(function (paramResults) {
+      if (DEBUG) {
+        console.log("$previewMessage results: ", paramResults);
+      }
+
+      // Bypass handleClear's default functionality via the functions object
+      this.handleClear({
+        before: this.displayPreview.bind(this, paramResults[
+          (this.utility.hasMessageWalls) ? "body" : "html"]),
+        after: this.attachPreviewEvents.bind(this),
+      });
+    }.bind(this));
+
+    /**
+     * @description In cases wherein the message preview has failed for some
+     * reason, the message scene doesn't change. The only alteration is the
+     * addition of a relevant status log message denoting a failed preview
+     * request.
+     */
+    $previewMessage.fail(this.addModalLogEntry.bind(this, "logErrorNoPreview"));
   };
 
   /**
@@ -1772,9 +2807,12 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * @returns {void}
    */
   main.handleToggle = function () {
-    if (!this.timer || (this.timer && this.timer.isComplete)) {
+    if (
+      !this.utility.timer ||
+      (this.utility.timer && this.utility.timer.isComplete)
+    ) {
       if (DEBUG) {
-        console.dir(this.timer);
+        console.dir(this.utility.timer);
       }
       return;
     }
@@ -1786,16 +2824,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     $toggle = $("#" + this.Selectors.ID_MODAL_TOGGLE);
     config = [
       {
-        message: "timerPaused", // Editing paused
+        message: "logTimerPaused",
         text: "buttonResume",
         method: "pause",
       },
       {
-        message: "timerResume", // Editing resumed
+        message: "logTimerResume",
         text: "buttonPause",
         method: "resume",
       }
-    ][+this.timer.isPaused];
+    ][+this.utility.timer.isPaused];
 
     // Add status log entry
     this.addModalLogEntry(config.message);
@@ -1804,7 +2842,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     $toggle.text(this.i18n.msg(config.text).escape());
 
     // Either resume or pause the setDynamicTimeout
-    this.timer[config.method]();
+    this.utility.timer[config.method]();
   };
 
   /**
@@ -1818,51 +2856,86 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * @returns {void}
    */
   main.handleCancel = function () {
-    if (!this.timer || (this.timer && this.timer.isComplete)) {
+    if (
+      !this.utility.timer ||
+      (this.utility.timer && this.utility.timer.isComplete)
+    ) {
       if (DEBUG) {
-        console.dir(this.timer);
+        console.dir(this.utility.timer);
       }
       return;
     } else {
-      this.resetModal("timerCancel");
+      this.resetModal("logTimerCancel");
     }
   };
 
   /**
    * @description As the name implies, the <code>handleClear</code> listener is
-   * used to clear the modal contents and reset the <code>form</code> HTML
+   * mainly used to clear modal contents and reset the <code>form</code> HTML
    * element. Rather than simply invoke the helper function
    * <code>resetModal</code>, however, this function adds some animation by
    * disabling the button set and fading in and out of the modal body during the
    * clearing operation, displaying a status message in the log upon completion.
+   * <br />
+   * <br />
+   * In addition to its main responsibility of clearing the modal fields of
+   * content, the function is also used as the primary means of transitioning
+   * between scenes on changes to the scene dropdown. It can even accept in
+   * place of a "transitioning" <code>boolean</code> input flag a dedicated
+   * functions <code>object</code> containing handlers for the fade-in/fade-out
+   * progression, bypassing all other internal functionality apart from the
+   * core fade operation.
    *
+   * @param {boolean|object} paramInput - Flag or handler <code>object</code>
    * @returns {void}
    */
-  main.handleClear = function () {
-    if (this.timer && !this.timer.isComplete) {
+  main.handleClear = function (paramInput) {
+    if (this.utility.timer && !this.utility.timer.isComplete) {
       if (DEBUG) {
-        console.dir(this.timer);
+        console.dir(this.utility.timer);
       }
       return;
     }
 
     // Declarations
-    var visible, hidden;
+    var $scene, functions, visible, hidden, isTransitioning;
+
+    // Whether the function is being used to reset or scene transition
+    isTransitioning = (typeof paramInput !== "boolean") ? false : paramInput;
+
+    // Scene dropdown element
+    $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
 
     // $.prototype.animate objects
     visible = {opacity: 1};
     hidden = {opacity: 0};
+
+    // Define listeners for fade-in and fade-out (either custom or defaults)
+    functions = (
+      this.isThisAn("Object", paramInput) &&
+      paramInput.hasOwnProperty("before") &&
+      paramInput.hasOwnProperty("after")
+    )
+      ? paramInput
+      : [
+          { // Standard form clear
+            before: this.resetModal.bind(this),
+            after: this.addModalLogEntry.bind(this, "logSuccessReset")
+          },
+          { // Scene transition
+            before: this.modal.modal.setContent.bind(this.modal.modal,
+              this.modal.scenes[$scene.value]),
+            after: this.attachModalEvents.bind(this),
+          }
+        ][+isTransitioning];
 
     // Disable all modal buttons for duration of fade and reset
     $("." + this.Selectors.CLASS_MODAL_BUTTON).prop("disabled", true);
 
     // Fade out on modal and reset content before fade-in
     $("#" + this.Selectors.ID_MODAL_CONTAINER + " > section")
-      .animate(hidden, this.Utility.FADE_INTERVAL,
-        this.resetModal.bind(this))
-      .animate(visible, this.Utility.FADE_INTERVAL,
-        // Success: All fields reset
-        this.addModalLogEntry.bind(this, "resetForm"));
+      .animate(hidden, this.Utility.FADE_INTERVAL, functions.before)
+      .animate(visible, this.Utility.FADE_INTERVAL, functions.after);
   };
 
   /****************************************************************************/
@@ -1883,7 +2956,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
    * Following this function's invocation, the MassEdit class instance will have
    * a total of five instance variables, namely, <code>i18n</code>,
    * <code>placement</code>, <code>interval</code>, <code>modal</code>, and
-   * <code>timer</code>. All other functionality related to the script is stored
+   * <code>utility</code>. All other functionality related to MassEdit is stored
    * in the class instance prototype, the <code>main</code> namespace object,
    * for convenience.
    *
@@ -1898,10 +2971,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     this.i18n.useContentLang();
 
     // Initialize new modal property
-    this.modal = null;
+    this.modal = {};
+
+    // New helper object for local config
+    this.utility = {};
 
     // Initialize a new dynamic timer object
-    this.timer = null;
+    this.utility.timer = null;
+
+    // New instance boolean property
+    this.utility.hasMessageWalls = null;
 
     // View instance props and prototype
     if (DEBUG) {
@@ -1909,7 +2988,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     }
 
     // Text to display in the tool element
-    toolText = this.i18n.msg("itemTitle").plain(); // MassEdit
+    toolText = this.i18n.msg("buttonScript").plain();
 
     // Build tool item (nested link inside list element)
     $toolItem = $(this.assembleOverflowElement(toolText));
@@ -1922,7 +3001,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   };
 
   /****************************************************************************/
-  /*                        Init helper functions                             */
+  /*                         Setup Helper methods                             */
   /****************************************************************************/
 
   /**
@@ -2003,7 +3082,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
   };
 
   /****************************************************************************/
-  /*                          Init main functions                             */
+  /*                          Setup Primary methods                           */
   /****************************************************************************/
 
   /**
@@ -2034,6 +3113,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     var i, n, array, descriptor, parameter, lowercase, method, property,
       descriptorProperties;
 
+    // Two of the three local instance variables
     array = ["Interval", "Placement"];
 
     // New Object.create descriptor object
@@ -2067,6 +3147,7 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
       descriptor[lowercase].value = this[method](parameter);
     }
 
+    // Log init object for inspection
     if (DEBUG) {
       console.dir(init);
     }
@@ -2110,13 +3191,16 @@ require(["jquery", "mw", "wikia.window"], function ($, mw, wk) {
     this.loaded = 0;
     hooks = Object.keys(this.Dependencies.SCRIPTS);
 
+    // Assemble all hooks and attach init.load as handler
     for (i = 0, n = hooks.length; i < n; i++) {
       mw.hook(hooks[i]).add(init.load.bind(this));
     }
   };
 
-  // Begin loading of external dependencies
+  // Load MW modules
   mw.loader.using(init.Dependencies.MODULES).then(init.preload.bind(init));
+
+  // Load Dev scripts (4x)
   wk.importArticles({
     type: "script",
     articles: Object.values(init.Dependencies.SCRIPTS),
