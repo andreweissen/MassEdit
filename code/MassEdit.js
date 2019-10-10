@@ -3112,10 +3112,17 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
     // Declarations
     var i, n, array, descriptor, parameter, lowercase, method, property,
-      descriptorProperties;
+      descriptorProperties, configObject;
 
     // Two of the three local instance variables
     array = ["Interval", "Placement"];
+
+    // Support both MassEdit config and legacy Message config
+    configObject = wk.MassEditConfig || wk.configMessage || {};
+
+    if (DEBUG) {
+      console.log("Config: ", configObject);
+    }
 
     // New Object.create descriptor object
     descriptor = {};
@@ -3137,8 +3144,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       property = array[i];
       method = "define" + property;
       lowercase = property.toLowerCase();
-      parameter = (wk.MassEditConfig && wk.MassEditConfig[lowercase])
-        ? wk.MassEditConfig[lowercase]
+      parameter =(configObject.hasOwnProperty(lowercase))
+        ? configObject[lowercase]
         : null;
 
       // New descriptor entry
