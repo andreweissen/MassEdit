@@ -360,7 +360,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         SCRIPT: "MassEdit",
         STD_INTERVAL: 1500,
         BOT_INTERVAL: 750,
-        CACHE_VERSION: 1,
+        CACHE_VERSION: 2,
       }),
     }
   });
@@ -451,6 +451,34 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     return new RegExp(["(" + this.UserGroups.CAN_EDIT.join("|") +
       ((paramMessaging) ? "|" + this.UserGroups.CAN_MESSAGE.join("|") : "") +
       ")"].join("")).test(wk.wgUserGroups.join(" "));
+  };
+
+  /**
+   * @description This utility method is used to remove duplicate entries from
+   * an array prior to the usage of the Quicksort implementation included in
+   * the sections below. Unlike other duplicate-removal implementations, this
+   * version makes no use of <code>Object.prototype.hasOwnProperty</code> or any
+   * value comparisons to determine if elements are already in a temporary
+   * storage structure. Instead, each element of the parameter array is simply
+   * added to the temporary object as a key, overwriting any previously added
+   * keys of the same value. This results in an object with unique keys that can
+   * be collated into an array and returned from the function.
+   *
+   * @param {Array<string>} paramArray - Array with potential duplicates
+   * @returns {Array<string>} - Duplicate-free array ready for sorting
+   */
+  main.replaceDuplicates = function (paramArray) {
+
+    // Declarations
+    var i, n, tempObject;
+
+    // Add unique elements as keys of local object
+    for (i = 0, n = paramArray.length, tempObject = {}; i < n; i++) {
+      tempObject[paramArray[i]] = true;
+    }
+
+    // Grab unique keys from tempObject as array
+    return Object.keys(tempObject);
   };
 
   /**
@@ -873,6 +901,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         token: mw.user.tokens.get("editToken"),
         action: "query",
         list: "allpages",
+        apnamespace: "*",
         aplimit: "max",
         format: "json",
       }, paramConfig)
@@ -900,9 +929,37 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         token: mw.user.tokens.get("editToken"),
         action: "query",
         list: "categorymembers",
+        cmnamespace: "*",
         cmprop: "title",
         cmdir: "desc",
         cmlimit: "max",
+        format: "json",
+      }, paramConfig)
+    });
+  };
+
+  /**
+   * @description This function queries the API for data related to pages that
+   * transclude/embed a given template somewhere. This argument is merged with
+   * the default <code>$.ajax</code> parameter object and can sometimes include
+   * properties related to <code>query-continue</code> requests for additional
+   * members beyond the default 5000 max. The method returns a resolved
+   * <code>$.Deferred</code> promise for use in attaching related callbacks to
+   * handle the member pages.
+   *
+   * @param {object} paramConfig - <code>object</code> with varying properties
+   * @returns {object} - <code>$.Deferred</code> resolved promise
+   */
+  main.getTemplateTransclusions = function (paramConfig) {
+    return $.ajax({
+      type: "GET",
+      url: mw.util.wikiScript("api"),
+      data: $.extend(false, {
+        token: mw.user.tokens.get("editToken"),
+        action: "query",
+        list: "embeddedin",
+        einamespace: "*",
+        eilimit: "max",
         format: "json",
       }, paramConfig)
     });
@@ -1002,10 +1059,11 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     // Returned $.Deferred
     $deferred = new $.Deferred();
 
-    // Cats, user talks, and message walls get prefixes
+    // Cats and templates get prefixes
     prefix = wk.wgFormattedNamespaces[{
       categories: 14,
       namespaces: 0,
+      templates: 10,
     }[paramType]] || "";
 
     for (i = 0, n = paramEntries.length; i < n; i++) {
@@ -1151,11 +1209,11 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @description This function is used to return a jQuery <code>Deferred</code>
    * object providing a <code>then</code> or <code>always</code> invocation with
    * an array of wellformed pages for editing. It accepts as input an array
-   * containing titles of either categories or namespaces from which to
-   * acquire member pages. In such cases, a number of API calls are made
-   * requesting the relevant members pages contained in the input categories or
-   * namespaces. These are checked and pushed into an entries array. Once
-   * complete, the entries array is returned by means of a resolved
+   * containing titles of either categories, namespaces, or templates from which
+   * to acquire member pages or transclusions. In such cases, a number of API
+   * calls are made requesting the relevant members contained in the input
+   * categories or namespaces. These are checked and pushed into an entries
+   * array. Once complete, the entries array is returned by means of a resolved
    * <code>Deferred.prototype.promise</code>.
    * <br />
    * <br />
@@ -1168,7 +1226,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * API queries.
    *
    * @param {Array<string>} paramEntries - Array of user input pages
-   * @param {string} paramType - <code>string</code> denoting cat or ns
+   * @param {string} paramType - <code>string</code> denoting cat, ns, or tl
    * @returns {object} $returnPages - $.Deferred promise object
    */
   main.getMemberPages = function (paramEntries, paramType) {
@@ -1203,10 +1261,16 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         handler: "getNamespaceMembers",
         continuer: "apfrom",
         target: "apnamespace",
-      }
+      },
+      templates: {
+        query: "embeddedin",
+        handler: "getTemplateTransclusions",
+        continuer: "eicontinue",
+        target: "eititle",
+      },
     }[paramType];
 
-    // Get wellformed, formatted namespace numbers or category names
+    // Get wellformed, formatted namespace numbers, category names, or templates
     $getEntries = this.getValidatedEntries(paramEntries, paramType);
 
     // Once acquired, apply to names array or pass along rejection message
@@ -1220,8 +1284,12 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         $addPages.resolve();
 
         if (entries.length) {
-          // Return Quicksorted entries
-          return $returnPages.resolve(this.sort(entries)).promise();
+
+          // Remove all duplicates prior to sorting
+          entries = this.sort(this.replaceDuplicates(entries));
+
+          // Return Quicksorted entries bereft of duplicates
+          return $returnPages.resolve(entries).promise();
         } else {
           // Error: No wellformed pages exist to edit
           return $returnPages.reject("logErrorNoWellformedPages").promise();
@@ -1231,10 +1299,12 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Set parameter target page
       parameters[config.target] = names[counter];
 
-      // Fetching member pages of $1
-      $returnPages.notify("logStatusFetchingMembers", names[counter]);
+      // Fetching member pages of $1 or Fetching transclusions of $1
+      $returnPages.notify((paramType === "templates")
+        ? "logStatusFetchingTransclusions"
+        : "logStatusFetchingMembers", names[counter]);
 
-      // Acquire member pages of cat or ns
+      // Acquire member pages of cat or ns or transclusions of templates
       $getPages = $.when(this[config.handler](parameters));
 
       // Once acquired, add pages to array
@@ -2023,7 +2093,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         {
           handler: "assembleDropdown",
           parameterArrays: [
-            ["type", ["categories", "namespaces"]]
+            ["type", ["categories", "namespaces", "templates"]]
           ]
         },
         {
@@ -3144,7 +3214,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       property = array[i];
       method = "define" + property;
       lowercase = property.toLowerCase();
-      parameter =(configObject.hasOwnProperty(lowercase))
+      parameter = (configObject.hasOwnProperty(lowercase))
         ? configObject[lowercase]
         : null;
 
