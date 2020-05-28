@@ -144,6 +144,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         ID_CONTENT_ACTION: "massedit-content-action",
         ID_CONTENT_TYPE: "massedit-content-type",
         ID_CONTENT_CASE: "massedit-content-case",
+        ID_CONTENT_MATCH: "massedit-content-match",
         ID_CONTENT_LOG: "massedit-content-log",
         ID_CONTENT_BYLINE: "massedit-content-byline",
         ID_CONTENT_BODY: "massedit-content-body",
@@ -224,21 +225,33 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
     /**
      * @description The <code>Utility</code> pseudo-enum of the
-     * <code>main</code> namespace object is used to store several constants of
-     * the <code>number</code> data type related to standard edit interval rates
-     * and edit delays in cases of rate limiting. Originally, these were housed
-     * in a <code>const</code> object in the script-global namespace, though
-     * their exclusive use by the MassEdit class instance made their inclusion
-     * into <code>main</code> seem like a more sensible placement decision.
+     * <code>main</code> namespace object is used to store various constants for
+     * general use in a variety of contexts. The constants of the
+     * <code>number</code> data type are related to standardizing edit interval
+     * rates and edit delays in cases of rate limiting. Originally, these were
+     * housed in a <code>const</code> object in the script-global namespace,
+     * though their exclusive use by the MassEdit class instance made their
+     * inclusion into <code>main</code> seem like a more sensible placement
+     * decision.
+     * <br />
+     * <br />
+     * The two <code>string</code> data type members are the key name used to
+     * store HTML "scenes" (operation interfaces) in the browser's
+     * <code>localStorage</code> and the name of the "scene" serving as the
+     * first interface built and displayed to the user upon initialization. By
+     * convention, this is the "Find and replace" scene, though any scene could
+     * have been used.
      *
      * @readonly
-     * @enum {number}
+     * @enum {string|number}
      */
     Utility: {
       enumerable: true,
       writable: false,
       configurable: false,
       value: Object.freeze({
+        LS_KEY: "MassEdit-cache-scenes",
+        FIRST_SCENE: "REPLACE",
         MAX_SUMMARY_CHARS: 800,
         FADE_INTERVAL: 1000,
         DELAY: 35000,
@@ -246,28 +259,134 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     },
 
     /**
-     * @description The <code>Scenes</code> pseudo-enum is used to store the
-     * <code>string</code> names of the four major operations supported by the
+     * @description The <code>Scenes</code> pseudo-enum is used to store data
+     * and names related to building the four major operations supported by the
      * MassEdit script, namely find-and-replace, append/prepend content, message
-     * users, and generation of page listings. These are used in the definition
-     * of certain element selectors and scene-specific elements, and their order
-     * is used to determine order in the main dropdown elements used to switch
-     * between scenes.
+     * users, and generation of page listings. Originally, this enum was an
+     * array used to store the <code>string</code> names of the four main scenes
+     * in the order that determined their placement in the associated operation
+     * dropdown menu. The actual design schema used to dynamically build the
+     * <code>string</code> HTML from builder functions was stored within a
+     * since-removed method called <code>main.buildModalScenes</code> that built
+     * all the scenes at once on program initialization.
+     * <br />
+     * <br />
+     * However, with the decision to revise this messy approach in favor of
+     * lazy-building scenes only when requested by the user, the scene schema
+     * was moved to this enum and rearranged into <code>object</code> form. The
+     * author was forced to make use of many nested <code>Object.freeze</code>
+     * invocations due to the inability to deep-freeze the whole object, though
+     * alternate approaches are being researched to de-uglify the enum in a
+     * future update.
      *
      * @readonly
-     * @enum {Array<string>}
+     * @enum {object}
      */
     Scenes: {
       enumerable: true,
       writable: false,
       configurable: false,
-      value: Object.freeze([
-        "replace",  // Find-and-replace (1st scene, default)
-        "add",      // Append/prepend content (2nd scene)
-        "message",  // Mass-message users (3rd scene)
-        "list",     // List cat/ns members (4th scene)
-      ]),
-    }
+      value: Object.freeze({
+
+        // Find-and-replace (1st scene, default)
+        REPLACE: Object.freeze({
+          NAME: "replace",
+          POSITION: 0,
+          SCHEMA: Object.freeze([
+            Object.freeze({
+              HANDLER: "assembleDropdown",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["type",
+                  Object.freeze(["pages", "categories", "namespaces"])
+                ]),
+                Object.freeze(["case",
+                  Object.freeze(["sensitive", "insensitive"])
+                ]),
+                Object.freeze(["match",
+                  Object.freeze(["plain", "regex"])
+                ]),
+              ])
+            }),
+            Object.freeze({
+              HANDLER: "assembleTextfield",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["target", "textarea"]),
+                Object.freeze(["indices", "input"]),
+                Object.freeze(["content", "textarea"]),
+                Object.freeze(["pages", "textarea"]),
+                Object.freeze(["summary", "input"]),
+              ])
+            })
+          ]),
+        }),
+
+        // Append/prepend content (2nd scene)
+        ADD: Object.freeze({
+          NAME: "add",
+          POSITION: 1,
+          SCHEMA: Object.freeze([
+            Object.freeze({
+              HANDLER: "assembleDropdown",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["action",
+                  Object.freeze(["prepend", "append"])
+                ]),
+                Object.freeze(["type",
+                  Object.freeze(["pages", "categories", "namespaces"])
+                ])
+              ])
+            }),
+            Object.freeze({
+              HANDLER: "assembleTextfield",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["content", "textarea"]),
+                Object.freeze(["pages", "textarea"]),
+                Object.freeze(["summary", "input"]),
+              ])
+            })
+          ]),
+        }),
+
+        // Mass-message users (3rd scene)
+        MESSAGE: Object.freeze({
+          NAME: "message",
+          POSITION: 2,
+          SCHEMA: Object.freeze([
+            Object.freeze({
+              HANDLER: "assembleTextfield",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["pages", "textarea"]),
+                Object.freeze(["byline", "input"]),
+                Object.freeze(["body", "textarea"]),
+              ])
+            })
+          ]),
+        }),
+
+        // List cat/ns members (4th scene)
+        LIST: Object.freeze({
+          NAME: "list",
+          POSITION: 3,
+          SCHEMA: Object.freeze([
+            Object.freeze({
+              HANDLER: "assembleDropdown",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["type",
+                  Object.freeze(["categories", "namespaces", "templates"])
+                ])
+              ])
+            }),
+            Object.freeze({
+              HANDLER: "assembleTextfield",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["pages", "textarea"]),
+                Object.freeze(["members", "textarea"]),
+              ])
+            })
+          ]),
+        }),
+      }),
+    },
   });
 
   /****************************************************************************/
@@ -360,7 +479,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         SCRIPT: "MassEdit",
         STD_INTERVAL: 1500,
         BOT_INTERVAL: 750,
-        CACHE_VERSION: 2,
+        CACHE_VERSION: 3,
       }),
     }
   });
@@ -482,49 +601,137 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   };
 
   /**
-   * @description This helper function is used as the primary mechanism by which
-   * the find-and-replace operation is undertaken. It can either replace all
-   * instances of a substring from an input parameter or only certain instances
-   * as denoted by an optional parameter array of <code>number</code> indices.
-   * Assuming such a parameter array is passed, a callback function is used with
-   * <code>String.prototype.replace</code> in order to sort through the
-   * appearances of the target in the content and adjust only those at one of
-   * the desired indices. In either case, the ammended string is adjusted and
-   * returned for posting by means of the API as the pages's new adjusted
-   * content.
+   * @description Originally, this function returned an ammended string adjusted
+   * to exhibit the user's desired content changes. The function was called for
+   * every individual page or category/namespace member inputted by the user.
+   * The author eventually noticed that all but one of the input arguments
+   * passed were unchanged from invocation to invocation and that the same
+   * internal operations were being undertaken and performed each time despite
+   * the unchanged arguments.
+   * <br />
+   * <br />
+   * As an improvement, the author refactored the method to use a closure,
+   * allowing the main outer function to be called only once to initialize
+   * internal fields with the unchanged arguments. Thanks to the closure, the
+   * returned inner function can be assigned to a local variable elsewhere and
+   * invoked as many times as needed while still making use of preserved closure
+   * variables housed in heap memory after the main function's frame is popped
+   * off the stack.
    *
-   * @param {string} paramString - Original string to be adjusted
    * @param {boolean} paramIsCaseSensitive - If case sensitivity is desired
+   * @param {boolean} paramIsUserRegex - If user has input own regex
    * @param {string} paramTarget - Text to be replaced
    * @param {string} paramReplacement - Text to be inserted
    * @param {Array<number>} paramInstances - Indices at which to replace text
-   * @returns {string} - An ammended <code>string</code>
+   * @returns {function} - A closure function to be invoked separately
    */
-  main.replaceOccurrences = function (paramString, paramIsCaseSensitive,
+  main.replaceOccurrences = function (paramIsCaseSensitive, paramIsUserRegex,
       paramTarget, paramReplacement, paramInstances) {
 
     // Declarations
-    var counter, regex;
+    var regex, replacement, counter;
 
-    // Definitions/sanitize params
+    // Sanitize input param
     paramInstances = (paramInstances != null) ? paramInstances : [];
-    regex = new RegExp(
-      paramTarget
+
+    // First parameter of the String.prototype.replace invocation
+    regex = new RegExp((paramIsUserRegex)
+      ? paramTarget // Example formatting: ([A-Z])\w+
+      : paramTarget
         .replace(/\r/gi, "")
         .replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"),
       ((paramIsCaseSensitive) ? "g" : "gi") + "m"
     );
-    counter = 0;
 
-    // Replace all instances if no specific indices specified
-    return paramString.replace(regex, (!paramInstances.length)
+    // Second parameter of the String.prototype.replace invocation
+    replacement = (!paramInstances.length)
       ? paramReplacement
       : function (paramMatch) {
           return ($.inArray(++counter, paramInstances) !== -1)
             ? paramReplacement
             : paramMatch;
-        }
-    );
+        };
+
+    // Closure so above operations are only undertaken once per submission op
+    return function (paramString) {
+
+      // Log regex and intended replacement
+      if (DEBUG) {
+        console.log(regex, replacement);
+      }
+
+      // Init counter in case of replace function
+      counter = 0;
+
+      // Replace using regex and either paramReplacement or anon function
+      return paramString.replace(regex, replacement);
+    };
+  };
+
+  /**
+   * @description This (admittedly messy) handler is used for both returning
+   * scene data from storage and for adding new scene data to storage for reuse.
+   * <code>localStorage</code> is accessed safely via the jQuery store plugin
+   * <code>$.store</code> and placed within a <code>try...catch</code> block to
+   * handle any additional thrown errors not handled by <code>$.store</code>. A
+   * local object stored in <code>main.modal</code> is used as a fallback in the
+   * event of an error being thrown.
+   *
+   * @see <a href="https://git.io/JfrsN">Wikia's jquery.store.js</a>
+   * @param {string} paramSceneName - Name for requested scene
+   * @param {string} paramSceneData - Content of scene for setting (optional)
+   * @returns {string|null} - Returns scene content or <code>null</code>
+   */
+  main.queryStorage = function (paramSceneName, paramSceneData) {
+
+    // Declarations
+    var isSetting, scenes;
+
+    // Handler can be used for both getting and setting, so check for which
+    isSetting = (Array.prototype.slice.call(arguments).length == 2 &&
+      paramSceneData != null);
+
+    // Apply localStorage data to this.modal.scenes and local scenes variable
+    try {
+      scenes = this.modal.scenes = $.storage.get(this.Utility.LS_KEY) || {};
+    } catch (paramError) {
+      if (DEBUG) {
+        console.error(paramError);
+      }
+
+      // Use fallback if localStorage throws
+      scenes = this.modal.scenes = this.modal.scenes || {};
+    }
+
+    // Return string HTML of requested scene or explicit null
+    if (!isSetting) {
+      return (scenes.hasOwnProperty(paramSceneName))
+        ? scenes[paramSceneName]
+        : null;
+    }
+
+    // Add to storage if no property with this name exists
+    if (!scenes.hasOwnProperty(paramSceneName)) {
+
+      // Simultaneously adds to both scenes variable and this.modal.scenes
+      scenes[paramSceneName] = paramSceneData;
+
+      // Add to localStorage
+      try {
+        $.storage.set(this.Utility.LS_KEY, scenes);
+      } catch (paramError) {}
+
+      // Make sure new scenes are added to both localStorage and modal.scenes
+      if (DEBUG) {
+        try {
+          console.log("modal.scenes: ", this.modal.scenes);
+          console.log("localStorage: ",
+            JSON.parse(wk.localStorage.getItem(this.Utility.LS_KEY)));
+        } catch (paramError) {}
+      }
+    }
+
+    return scenes[paramSceneName];
   };
 
   /****************************************************************************/
@@ -1900,7 +2107,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   main.displayPreview = function (paramBody) {
 
     // Declarations
-    var $scene, contents, $byline, $messaging, $modal,isMessaging;
+    var $scene, previewScene, contents, $byline, $messaging, $modal,
+      isMessaging;
 
     // Definitions
     $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
@@ -1914,16 +2122,14 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       return;
     }
 
-    // Preview modal scene contents
-    contents = ((this.modal.preview != null)
-      ? this.modal.scenes.preview
-      : this.modal.scenes.preview = this.buildPreviewContent()
-    ).replace("$1", $byline).replace("$2", paramBody);
+    // See if the preview scene has been saved to storage
+    previewScene = this.queryStorage("preview");
 
-    // Log preview HTML
-    if (DEBUG) {
-      console.log("Preview contents: ", contents);
-    }
+    // Preview modal scene contents
+    contents = ((previewScene != null)
+      ? previewScene
+      : this.queryStorage("preview", this.buildPreviewContent())
+    ).replace("$1", $byline).replace("$2", paramBody);
 
     // Hide the messaging rather than reset the modal contents
     $messaging.hide();
@@ -2011,147 +2217,97 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   };
 
   /**
-   * @description This function is used to assemble the four main so-called
-   * "scenes" that make up the body content of the <code>Modal</code> instance.
-   * Originally made up of four methods, each handling its respective scene,
-   * this method handles the creation of all scene <code>string</code> HTML
-   * during <code>Modal</code> assembly, ensuring that all content is ready for
-   * display on the user's interaction with the module dropdown menu. The
-   * assembled contents are then stored in the <code>modal</code> class instance
-   * variable <code>scenes</code> for use throughout the script without the need
-   * to reassemble their contents each time the scene changes.
+   * @description In its initial incarnation under the original title of
+   * <code>main.buildModalScenes</code>, this function was used to assemble all
+   * four main so-called "scenes" that make up the body content of the
+   * <code>Modal</code> instance and serve as the user interfaces for the
+   * associated operations. However, the method was inherently inefficient for
+   * building all four scenes every time MassEdit was initialized by the user.
+   * Though the scenes were temporarily cached in a local
+   * <code>main.modal.scenes</code> storage <code>object</code>, they were not
+   * added to <code>localStorage</code> and thus were rebuilt every time the
+   * user navigated away from the page on which MassEdit was loaded.
    * <br />
    * <br />
-   * Unfortunately, the function runs at O(n ^ 3) time in the assembly of all
-   * required scenes. The author has considered revamping this function and only
-   * creating scenes when the user requests a scene change by means of the
-   * aforementioned scene dropdown menu, caching each new scene once created in
-   * the relevant instance variable object.
+   * To fix this inefficiency and improve the process, the author eventually
+   * replaced this approach with a lazy-load-style system that only builds
+   * scenes as they are needed and stores preassembled scenes in the browser
+   * <code>localStorage</code> object via <code>$.store</code> for subsequent
+   * reuse. To accomplish this, this function was stripped down and rewritten.
+   * Under its present design, the function first checks storage to see if the
+   * scene has already been built, returning the scene from storage if it has
+   * been assembled before. Otherwise, the method builds the string HTML from
+   * design schema housed in <code>main.Scenes</code>, adds that HTML to
+   * storage, and returns the result.
    *
-   * @returns {object} this.modal.scenes - Reference to instance variable prop
+   * @param {string} paramScene - Name of the desired scene to build
+   * @returns {string} - Assembled string HTML of the desired scene
    */
-  main.buildModalScenes = function () {
+  main.buildModalScene = function (paramScene) {
 
     // Declarations
-    var i, j, k, m, n, o, framework, scene, defaultArgs, dropdownArgs, data,
-      elements, object, arrays;
+    var i, j, m, n, tempScene, sceneNames, assembledScene, framework, enumScene,
+      dropdownArgs, elements, enumSchema, enumArrays, selector, storedResults;
 
-    // Define scenes object
-    this.modal.scenes = {};
+    // See if a copy of this scene already exists in storage
+    storedResults = this.queryStorage(paramScene);
 
-    // Default arguments
-    defaultArgs = ["scene", this.Scenes];
-
-    data = [
-      [ // Replace
-        {
-          handler: "assembleDropdown",
-          parameterArrays: [
-            ["type", ["pages", "categories", "namespaces"]],
-            ["case", ["sensitive", "insensitive"]],
-          ]
-        },
-        {
-          handler: "assembleTextfield",
-          parameterArrays: [
-            ["target", "textarea"],
-            ["indices", "input"],
-            ["content", "textarea"],
-            ["pages", "textarea"],
-            ["summary", "input"],
-          ]
-        }
-      ],
-      [ // Addition
-        {
-          handler: "assembleDropdown",
-          parameterArrays: [
-            ["action", ["prepend", "append"]],
-            ["type", ["pages", "categories", "namespaces"]]
-          ]
-        },
-        {
-          handler: "assembleTextfield",
-          parameterArrays: [
-            ["content", "textarea"],
-            ["pages", "textarea"],
-            ["summary", "input"],
-          ]
-        }
-      ],
-      [ // Messaging
-        {
-          handler: "assembleTextfield",
-          parameterArrays: [
-            ["pages", "textarea"],
-            ["byline", "input"],
-            ["body", "textarea"],
-          ]
-        }
-      ],
-      [ // Listing
-        {
-          handler: "assembleDropdown",
-          parameterArrays: [
-            ["type", ["categories", "namespaces", "templates"]]
-          ]
-        },
-        {
-          handler: "assembleTextfield",
-          parameterArrays: [
-            ["pages", "textarea"],
-            ["members", "textarea"],
-          ]
-        }
-      ]
-    ];
+    // If the scene exists in storage, return that copy
+    if (storedResults != null && storedResults.length) {
+      return storedResults;
+    }
 
     // Basic modal form framework
     framework = this.buildModalContent();
 
-    for (i = 0, n = this.Scenes.length; i < n; i++) {
+    // Grab scene config object associated with input argument string
+    enumScene = this.Scenes[paramScene.toUpperCase()];
 
-      // Internal definitions
-      scene = this.Scenes[i];
+    // Temporary array for scene names used to construct dropdown options
+    sceneNames = [];
 
-      // New scene object
-      this.modal.scenes[scene] = {};
-
-      // Make copy of defaults and add the index
-      dropdownArgs = $.merge($.merge([], defaultArgs), [i]);
-
-      // New defaultArgs object logged
-      if (DEBUG) {
-        console.log(dropdownArgs);
+    // Better than Object.keys(this.Scenes) since key names could change
+    for (tempScene in this.Scenes) {
+      if (this.Scenes.hasOwnProperty(tempScene)) {
+        sceneNames.push(this.Scenes[tempScene].NAME);
       }
-
-      // Init string HTML
-      elements = "";
-
-      // Make it O(n^3) - go big or go home
-      for (j = 0, m = data[i].length; j < m; j++) {
-        object = data[i][j];
-        arrays = object.parameterArrays;
-        for (k = 0, o = arrays.length; k < o; k++) {
-          elements += this[object.handler].apply(this, arrays[k]);
-        }
-      }
-
-      // Make use of modal framework to insert scene-specific HTML
-      this.modal.scenes[scene] =
-        framework
-          .replace("$1", this.Selectors["ID_CONTENT_" + scene.toUpperCase()])
-          .replace("$2", this.assembleDropdown.apply(this, dropdownArgs))
-          .replace("$3", elements);
     }
 
-    // Log instance variable modal's scenes property
+    // Make copy of defaults and add the index
+    dropdownArgs = ["scene", sceneNames, enumScene.POSITION];
+
+    // New defaultArgs object logged
     if (DEBUG) {
-      console.log("modal.scenes:", this.modal.scenes);
+      console.log(dropdownArgs);
     }
 
-    // Return reference for use in buildModal
-    return this.modal.scenes;
+    // Init string HTML
+    elements = "";
+
+    // ID selector
+    selector = "ID_CONTENT_" + enumScene.NAME.toUpperCase();
+
+    // Use schema to dynamically construct string HTML from builder functions
+    for (i = 0, n = enumScene.SCHEMA.length; i < n; i++) {
+      enumSchema = enumScene.SCHEMA[i];
+      enumArrays = enumSchema.PARAMETER_ARRAYS;
+      for (j = 0, m = enumArrays.length; j < m; j++) {
+        elements += this[enumSchema.HANDLER].apply(this, enumArrays[j]);
+      }
+    }
+
+    // Make use of modal framework to insert scene-specific HTML
+    assembledScene =
+      framework
+        .replace("$1", this.Selectors[selector])
+        .replace("$2", this.assembleDropdown.apply(this, dropdownArgs))
+        .replace("$3", elements);
+
+    // Add this scene to storage for subsequent usage
+    this.queryStorage(paramScene, assembledScene);
+
+    // Return scene HTML
+    return assembledScene;
   };
 
   /**
@@ -2168,7 +2324,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    */
   main.buildModal = function () {
     return new wk.dev.modal.Modal({
-      content: this.buildModalScenes()[this.Scenes[0]], // 1st scene is default
+      content: this.buildModalScene(this.Scenes[this.Utility.FIRST_SCENE].NAME),
       id: this.Selectors.ID_MODAL_CONTAINER,
       size: "medium",
       title: this.i18n.msg("buttonScript").escape(),
@@ -2340,17 +2496,19 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     }
 
     // Declarations
-    var $action, $type, $case, $content, $target, $indices, indices, $pages,
-      pages, $byline, $summary, counter, config, data, pageIndex, newText,
-      $getPages, $postPages, $getNextPage, $getPageContent, $postPageContent,
-      error, $scene, isCaseSensitive, isReplace, isAddition, isMessaging,
-      isListing, $members, $selected, $body, pagesType;
+    var $action, $type, $case, $match, $content, $target, $indices, indices,
+      $pages, pages, $byline, $summary, counter, config, data, pageIndex,
+      newText, $getPages, $postPages, $getNextPage, $getPageContent,
+      $postPageContent, error, $scene, isCaseSensitive, isUserRegex, isReplace,
+      isAddition, isMessaging, isListing, $members, $selected, $body, pagesType,
+      replaceOccurrences;
 
     // Dropdowns
     $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
     $action = $("#" + this.Selectors.ID_CONTENT_ACTION)[0];
     $type = $("#" + this.Selectors.ID_CONTENT_TYPE)[0];
     $case = $("#" + this.Selectors.ID_CONTENT_CASE)[0];
+    $match = $("#" + this.Selectors.ID_CONTENT_MATCH)[0];
 
     // Textareas/inputs
     $target = $("#" + this.Selectors.ID_CONTENT_TARGET).val();
@@ -2450,6 +2608,19 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Whether not search and replace is case sensitive
       isCaseSensitive = ($case.selectedIndex === 0 &&
         $case.value === "sensitive");
+
+      // Whether user has input regex for finding & replacing
+      isUserRegex = ($match.selectedIndex === 1 &&
+        $match.value === "regex");
+
+      // Define regex, etc. only once per submission operation using closure
+      replaceOccurrences = this.replaceOccurrences(isCaseSensitive,
+        isUserRegex, $target, $content, indices);
+
+      // Check closure scope's variables under [[Scopes]]
+      if (DEBUG) {
+        console.dir(replaceOccurrences);
+      }
     }
 
     // Array of pages/categories/namespaces
@@ -2645,8 +2816,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         };
 
         // Replace instances of chosen text with inputted new text
-        newText = this.replaceOccurrences(config.parameters.text,
-          isCaseSensitive, $target, $content, indices);
+        newText = replaceOccurrences(config.parameters.text);
 
         // Return if old & new revisions are identical in content
         if (newText === config.parameters.text) {
@@ -2995,7 +3165,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           },
           { // Scene transition
             before: this.modal.modal.setContent.bind(this.modal.modal,
-              this.modal.scenes[$scene.value]),
+              this.buildModalScene($scene.value)),
             after: this.attachModalEvents.bind(this),
           }
         ][+isTransitioning];
