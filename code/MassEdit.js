@@ -87,6 +87,15 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    */
   const DEBUG = false;
 
+  /**
+   * @description This <code>boolean</code> flag is used to run unit tests of
+   * the main parts of essential MassEdit functionality without actually making
+   * any changes to extant pages. It also allows the testing user to bypass the
+   * community user rights restrictions placed upon this script's usage, thus
+   * allowing for community-specific testing whenever appropriate.
+   */
+  const TESTING = false;
+
   /****************************************************************************/
   /*                         Prototype pseudo-enums                           */
   /****************************************************************************/
@@ -569,7 +578,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   main.hasRights = function (paramMessaging) {
     return new RegExp(["(" + this.UserGroups.CAN_EDIT.join("|") +
       ((paramMessaging) ? "|" + this.UserGroups.CAN_MESSAGE.join("|") : "") +
-      ")"].join("")).test(wk.wgUserGroups.join(" "));
+      ")"].join("")).test(wk.wgUserGroups.join(" ")) || TESTING;
   };
 
   /**
@@ -2778,6 +2787,12 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         console.log("$postPages results: ", paramResults);
       }
 
+      // Make sure returned results have a "query" property
+      if (paramResults.query == null || !paramResults.hasOwnProperty("query")) {
+        this.addModalLogEntry("logErrorEditing", pages[counter++]);
+        return this.utility.timer.iterate();
+      }
+
       // Addition parameters
       if (isAddition) {
         config = {
@@ -2789,13 +2804,24 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           }
         };
 
-        // "appendtext" or "prependtext"
-        config.parameters[$action.value.toLowerCase() + "text"] = $content;
+        if (!TESTING) {
+          // "appendtext" or "prependtext"
+          config.parameters[$action.value.toLowerCase() + "text"] = $content;
+        }
 
       // Find-and-replace parameters
       } else if (isReplace) {
         pageIndex = Object.keys(paramResults.query.pages)[0];
         data = paramResults.query.pages[pageIndex];
+
+        // Shim to handle ArticleComments that do not have revision history
+        if (
+          !data.hasOwnProperty("revisions") ||
+          !this.isThisAn("Array", data.revisions)
+        ) {
+          this.addModalLogEntry("logErrorEditing", pages[counter++]);
+          return this.utility.timer.iterate();
+        }
 
         // Return if page doesn't exist to the server
         if (pageIndex === "-1") {
@@ -2824,7 +2850,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           this.addModalLogEntry("logErrorNoMatch", $target, pages[counter++]);
           return this.utility.timer.iterate();
         } else {
-          config.parameters.text = newText;
+          if (!TESTING) {
+            config.parameters.text = newText;
+          }
         }
 
       // Messaging parameters
@@ -2832,7 +2860,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         config = [
           {
             handler: "postTalkPageTopic",
-            parameters: {
+            parameters: (TESTING) ? {} : {
               sectiontitle: $byline,
               text: $body,
               title: pages[counter],
@@ -2840,7 +2868,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           },
           {
             handler: "postMessageWallThread",
-            parameters: {
+            parameters: (TESTING) ? {} : {
               messagetitle: $byline,
               body: $body,
               pagetitle: pages[counter],
