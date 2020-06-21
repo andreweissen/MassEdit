@@ -2787,12 +2787,6 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         console.log("$postPages results: ", paramResults);
       }
 
-      // Make sure returned results have a "query" property
-      if (paramResults.query == null || !paramResults.hasOwnProperty("query")) {
-        this.addModalLogEntry("logErrorEditing", pages[counter++]);
-        return this.utility.timer.iterate();
-      }
-
       // Addition parameters
       if (isAddition) {
         config = {
@@ -2811,6 +2805,16 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
       // Find-and-replace parameters
       } else if (isReplace) {
+
+        // Make sure returned results have a "query" property
+        if (
+          paramResults.query == null ||
+          !paramResults.hasOwnProperty("query")
+        ) {
+          this.addModalLogEntry("logErrorEditing", pages[counter++]);
+          return this.timer.iterate();
+        }
+
         pageIndex = Object.keys(paramResults.query.pages)[0];
         data = paramResults.query.pages[pageIndex];
 
