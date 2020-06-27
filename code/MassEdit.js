@@ -1,16 +1,16 @@
 /**
  * <nowiki>
  * MassEdit.js
- * @file Add/replace pages/categories/namespaces, message users, or list pages
+ * @file Essentially "bot software lite"; task automation and bulk editing tool
  * @author Eizen <dev.wikia.com/wiki/User_talk:Eizen>
  * @license CC-BY-SA 3.0
  * @external "mediawiki.util"
  * @external "mediawiki.user"
  * @external "ext.wikia.LinkSuggest"
- * @external "jquery"
- * @external "mw"
- * @external "wikia.window"
- * @external "wikia.nirvana"
+ * @external "I18n-js"
+ * @external "Modal.js"
+ * @external "Placement.js"
+ * @external "WgMessageWallsExist.js"
  */
 
 /**
@@ -36,23 +36,17 @@
  */
 
 /*jslint browser, this:true */
-/*global require */
 /*eslint-env es6 */
 /*eslint-disable */
 
-require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
-    function ($, mw, wk, nv) {
+;(function (module, window, $, mw) {
   "use strict";
 
-  // Define extant global object config if needed
-  wk.dev = wk.dev || {};
-  wk.dev.massEdit = wk.dev.massEdit || {};
-
   // Prevent double loads and respect prior double load check formatting
-  if (wk.dev.massEdit.isLoaded || wk.isMassEditLoaded) {
+  if (!window || !$ || !mw || module.isLoaded || window.isMassEditLoaded) {
     return;
   }
-  wk.dev.massEdit.isLoaded = true;
+  module.isLoaded = true;
 
   /**
    * @description The <code>main</code> namespace object is used as a class
@@ -75,26 +69,6 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @const
    */
   const init = {};
-
-  /**
-   * @description This simple <code>boolean</code> flag is used to log messages
-   * in the console at sensitive application logic problem areas where issues
-   * are known to arise. Originally, DEBUG was part of an enum alongside a unit
-   * testing <code>boolean</code>; however, the removal of unit tests at the end
-   * of the testing period returned DEBUG to the script-global scope.
-   *
-   * @const
-   */
-  const DEBUG = false;
-
-  /**
-   * @description This <code>boolean</code> flag is used to run unit tests of
-   * the main parts of essential MassEdit functionality without actually making
-   * any changes to extant pages. It also allows the testing user to bypass the
-   * community user rights restrictions placed upon this script's usage, thus
-   * allowing for community-specific testing whenever appropriate.
-   */
-  const TESTING = false;
 
   /****************************************************************************/
   /*                         Prototype pseudo-enums                           */
@@ -233,41 +207,6 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     },
 
     /**
-     * @description The <code>Utility</code> pseudo-enum of the
-     * <code>main</code> namespace object is used to store various constants for
-     * general use in a variety of contexts. The constants of the
-     * <code>number</code> data type are related to standardizing edit interval
-     * rates and edit delays in cases of rate limiting. Originally, these were
-     * housed in a <code>const</code> object in the script-global namespace,
-     * though their exclusive use by the MassEdit class instance made their
-     * inclusion into <code>main</code> seem like a more sensible placement
-     * decision.
-     * <br />
-     * <br />
-     * The two <code>string</code> data type members are the key name used to
-     * store HTML "scenes" (operation interfaces) in the browser's
-     * <code>localStorage</code> and the name of the "scene" serving as the
-     * first interface built and displayed to the user upon initialization. By
-     * convention, this is the "Find and replace" scene, though any scene could
-     * have been used.
-     *
-     * @readonly
-     * @enum {string|number}
-     */
-    Utility: {
-      enumerable: true,
-      writable: false,
-      configurable: false,
-      value: Object.freeze({
-        LS_KEY: "MassEdit-cache-scenes",
-        FIRST_SCENE: "REPLACE",
-        MAX_SUMMARY_CHARS: 800,
-        FADE_INTERVAL: 1000,
-        DELAY: 35000,
-      }),
-    },
-
-    /**
      * @description The <code>Scenes</code> pseudo-enum is used to store data
      * and names related to building the four major operations supported by the
      * MassEdit script, namely find-and-replace, append/prepend content, message
@@ -396,6 +335,92 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         }),
       }),
     },
+
+    /**
+     * @description This pseudo-enum is used to store the <code>string</code>
+     * names of the various <code>WikipediaGlobal</code> (wg) variables required
+     * by the main MassEdit class instance. These are fetched within the body of
+     * the <code>main.init</code> function via a <code>mw.config.get</code>
+     * invocation and stored in an instance variable property named
+     * <code>main.globals</code> for subsequent usage. This approach replaces
+     * the deprecated approach previously used in the script of assuming the
+     * relevant wg variables exist as properties of the <code>window</code>
+     * object, an assumption that is discouraged in more recent version of MW.
+     *
+     * @readonly
+     * @enum {object}
+     */
+    Globals: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze([
+        "wgCookieDomain",
+        "wgFormattedNamespaces",
+        "wgLegalTitleChars",
+        "wgUserGroups",
+        "wgVersion",
+      ]),
+    },
+
+    /**
+     * @description This pseudo-enum replaces the previous pair of
+     * <code>boolean</code> constants housed in the script-global execution
+     * context, namely <code>DEBUG</code> and <code>TESTING</code>. This enum
+     * houses the default values of these flags, the value of which are applied
+     * to the properties of the MassEdit instance's <code>flags</code> local
+     * variable. This system allows for the exposing of certain public methods
+     * that permit post-load toggling of the debug and test modes for more
+     * dynamic debugging.
+     *
+     * @readonly
+     * @enum {boolean}
+     */
+    Flags: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze({
+        DEBUG: false,
+        TESTING: false,
+      }),
+    },
+
+
+    /**
+     * @description The <code>Utility</code> pseudo-enum of the
+     * <code>main</code> namespace object is used to store various constants for
+     * general use in a variety of contexts. The constants of the
+     * <code>number</code> data type are related to standardizing edit interval
+     * rates and edit delays in cases of rate limiting. Originally, these were
+     * housed in a <code>const</code> object in the script-global namespace,
+     * though their exclusive use by the MassEdit class instance made their
+     * inclusion into <code>main</code> seem like a more sensible placement
+     * decision.
+     * <br />
+     * <br />
+     * The two <code>string</code> data type members are the key name used to
+     * store HTML "scenes" (operation interfaces) in the browser's
+     * <code>localStorage</code> and the name of the "scene" serving as the
+     * first interface built and displayed to the user upon initialization. By
+     * convention, this is the "Find and replace" scene, though any scene could
+     * have been used.
+     *
+     * @readonly
+     * @enum {string|number}
+     */
+    Utility: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze({
+        LS_KEY: "MassEdit-cache-scenes",
+        FIRST_SCENE: "REPLACE",
+        MAX_SUMMARY_CHARS: 800,
+        FADE_INTERVAL: 1000,
+        DELAY: 35000,
+      }),
+    },
   });
 
   /****************************************************************************/
@@ -410,11 +435,19 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * used to initialize the script stores data related to the external
      * dependencies and core modules required by the script. It consists of two
      * properties. The former, a constant <code>object</code> called "SCRIPTS,"
-     * contains key/value pairs wherein the key is the specific name of the
-     * <code>mw.hook</code> and the value is the script's location for use by
-     * <code>importArticles.articles</code>. The latter, a constant array named
-     * <code>MODULES</code>, contains a listing of the core modules required for
-     * use by <code>mw.loader.using</code>.
+     * originally contained key/value pairs wherein the key was the specific
+     * name of the <code>mw.hook</code> and the value was the script's location
+     * for use by <code>importArticles.articles</code>. However, this system
+     * was eventually replaced in favor of an array of <code>object</code>s
+     * containing properties for hook, <code>window.dev</code> alias, and script
+     * for more efficient, readable loading of dependencies.
+     * <br />
+     * <br />
+     * The latter array, a constant array named <code>MODULES</code>, contains a
+     * listing of the core modules required for use by
+     * <code>mw.loader.using</code>. It may be worth noting for future reference
+     * that <code>ext.wikia.LinkSuggest</code> doesn't exist yet in the UCP, so
+     * an error will be thrown somewhere if the script is loaded on a UCP wiki.
      *
      * @readonly
      * @enum {object}
@@ -424,13 +457,28 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       writable: false,
       configurable: false,
       value: Object.freeze({
-        SCRIPTS: Object.freeze({
-          // Keys should NOT be altered unless hook names change
-          "dev.i18n": "u:dev:MediaWiki:I18n-js/code.js",
-          "dev.placement": "u:dev:MediaWiki:Placement.js",
-          "dev.modal": "u:dev:MediaWiki:Modal.js",
-          "dev.enablewallext": "u:dev:MediaWiki:WgMessageWallsExist.js",
-        }),
+        SCRIPTS: Object.freeze([
+          Object.freeze({
+            DEV: "i18n",
+            HOOK: "dev.i18n",
+            SCRIPT: "u:dev:MediaWiki:I18n-js/code.js",
+          }),
+          Object.freeze({
+            DEV: "placement",
+            HOOK: "dev.placement",
+            SCRIPT: "u:dev:MediaWiki:Placement.js",
+          }),
+          Object.freeze({
+            DEV: "modal",
+            HOOK: "dev.modal",
+            SCRIPT: "u:dev:MediaWiki:Modal.js",
+          }),
+          Object.freeze({
+            DEV: null,
+            HOOK: "dev.enablewallext",
+            SCRIPT: "u:dev:MediaWiki:WgMessageWallsExist.js",
+          }),
+        ]),
         MODULES: Object.freeze([
           "mediawiki.util",
           "mediawiki.user",
@@ -473,7 +521,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * fit well into other pseudo-enums. It contains the interval rates
      * calculated from the edit restrictions imposed upon normal users and bots.
      * additionally, it contains a <code>string</code> constant denoting the
-     * name of the script.
+     * name of the script and another <code>string</code> for the name of the
+     * <code>mw.hook</code> event.
      *
      * @see <a href="https://git.io/fA4Jk">SUS-4775</a>
      * @see <a href="https://git.io/fA4eQ">VariablesBase.php</a>
@@ -486,6 +535,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       configurable: false,
       value: Object.freeze({
         SCRIPT: "MassEdit",
+        HOOK_NAME: "dev.massEdit",
         STD_INTERVAL: 1500,
         BOT_INTERVAL: 750,
         CACHE_VERSION: 3,
@@ -535,7 +585,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @return {boolean} - Flag denoting the nature of the paramString
    */
   main.isLegalInput = function (paramString) {
-    return new RegExp("^[" + wk.wgLegalTitleChars + "]*$").test(paramString);
+    return new RegExp("^[" + this.globals.wgLegalTitleChars +
+      "]*$").test(paramString);
   };
 
   /**
@@ -578,7 +629,36 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   main.hasRights = function (paramMessaging) {
     return new RegExp(["(" + this.UserGroups.CAN_EDIT.join("|") +
       ((paramMessaging) ? "|" + this.UserGroups.CAN_MESSAGE.join("|") : "") +
-      ")"].join("")).test(wk.wgUserGroups.join(" ")) || TESTING;
+      ")"].join("")).test(this.globals.wgUserGroups.join(" ")) ||
+      this.flags.testing;
+  };
+
+    /**
+   * @description This helper method serves as the primary means by which all
+   * external post-load toggling of the debug and test modes may be undertaken.
+   * This particular implementation makes use of the bitwise XOR operator to
+   * toggle the <code>number</code> representation of the flag's
+   * <code>boolean<code> value between 0 and 1 prior to type coercing the result
+   * back to the <code>boolean</code> data type.
+   *
+   * @param {string} paramFlagName - <code>string</code> name of desired flag
+   * @returns {void}
+   */
+  main.toggleFlag = function (paramFlagName) {
+    if (
+      typeof paramFlagName !== "string" ||
+      $.inArray(paramFlagName.toUpperCase(), Object.keys(this.Flags)) === -1
+    ) {
+      return;
+    }
+
+    // Check for boolean flag's existence and add default if undefined
+    (this.flags = this.flags || {})[paramFlagName] =
+      this.flags[paramFlagName] || this.Flags[paramFlagName];
+
+    // Toggle via bitwise then type coerce back to boolean before redefining
+    console.log(paramFlagName + ":",
+      this.flags[paramFlagName] = !!(this.flags[paramFlagName] ^= 1));
   };
 
   /**
@@ -665,7 +745,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     return function (paramString) {
 
       // Log regex and intended replacement
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log(regex, replacement);
       }
 
@@ -674,7 +754,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
       // Replace using regex and either paramReplacement or anon function
       return paramString.replace(regex, replacement);
-    };
+    }.bind(this);
   };
 
   /**
@@ -704,7 +784,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     try {
       scenes = this.modal.scenes = $.storage.get(this.Utility.LS_KEY) || {};
     } catch (paramError) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.error(paramError);
       }
 
@@ -731,11 +811,11 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       } catch (paramError) {}
 
       // Make sure new scenes are added to both localStorage and modal.scenes
-      if (DEBUG) {
+      if (this.flags.debug) {
         try {
           console.log("modal.scenes: ", this.modal.scenes);
           console.log("localStorage: ",
-            JSON.parse(wk.localStorage.getItem(this.Utility.LS_KEY)));
+            JSON.parse(window.localStorage.getItem(this.Utility.LS_KEY)));
         } catch (paramError) {}
       }
     }
@@ -791,7 +871,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    */
   main.setDynamicTimeout.cancel = function () {
     this.isComplete = true;
-    wk.clearTimeout(this.identify);
+    window.clearTimeout(this.identify);
   };
 
   /**
@@ -809,7 +889,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     }
 
     this.isPaused = true;
-    wk.clearTimeout(this.identify);
+    window.clearTimeout(this.identify);
   };
 
   /**
@@ -853,7 +933,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       : paramInterval;
 
     // Define the identifier
-    this.identify = wk.setTimeout(this.callback, paramInterval);
+    this.identify = window.setTimeout(this.callback, paramInterval);
   };
 
   /****************************************************************************/
@@ -1001,7 +1081,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {object} - <code>$.Deferred</code> resolved promise
    */
   main.getUsernameData = function (paramUsername) {
-    return nv.getJson("UserProfilePage", "renderUserIdentityBox", {
+    return $.nirvana.getJson("UserProfilePage", "renderUserIdentityBox", {
       title: paramUsername,
     });
   };
@@ -1020,10 +1100,12 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {object} - <code>$.Deferred</code> resolved promise
    */
   main.postMessageWallThread = function (paramConfig) {
-    return nv.postJson("WallExternal", "postNewMessage", $.extend(false, {
-      token: mw.user.tokens.get("editToken"),
-      pagenamespace: 1200,
-    }, paramConfig));
+    return $.nirvana.postJson("WallExternal", "postNewMessage",
+      $.extend(false, {
+        token: mw.user.tokens.get("editToken"),
+        pagenamespace: 1200,
+      }, paramConfig)
+    );
   };
 
   /**
@@ -1065,7 +1147,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {object} - <code>$.Deferred</code> object
    */
   main.previewMessageWallThread = function (paramBody) {
-    return nv.postJson("WallExternal", "preview", {
+    return $.nirvana.postJson("WallExternal", "preview", {
       body: paramBody,
     });
   };
@@ -1261,7 +1343,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * than helper functions like this and <code>getMemberPages</code>.
    *
    * @param {Array<string>} paramEntries - Array of pages/cats/ns
-   * @param {string} paramType - Either categories, loose pages, or namespaces
+   * @param {string} paramType - categories, templates, namespaces, recipients
    * @returns {object} $deferred - Promise returned for use w/ <code>then</code>
    */
   main.getValidatedEntries = function (paramEntries, paramType) {
@@ -1276,7 +1358,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     $deferred = new $.Deferred();
 
     // Cats and templates get prefixes
-    prefix = wk.wgFormattedNamespaces[{
+    prefix = this.globals.wgFormattedNamespaces[{
       categories: 14,
       namespaces: 0,
       templates: 10,
@@ -1286,6 +1368,13 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
       // Cache value to prevent multiple map lookups
       entry = this.capitalize(paramEntries[i].trim());
+
+      if (
+        paramType === "recipients" &&
+        this.startsWith(entry, this.globals.wgFormattedNamespaces[2])
+      ) {
+        entry = entry.split(this.globals.wgFormattedNamespaces[2] + ":")[1];
+      }
 
       // If requires prefix but entry does not have prefix
       if (!this.startsWith(entry, prefix)) {
@@ -1340,21 +1429,21 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     counter = 0;
 
     // Message Wall or User talk
-    wallPrefix = wk.wgFormattedNamespaces[
-      (this.utility.hasMessageWalls)
+    wallPrefix = this.globals.wgFormattedNamespaces[
+      (this.info.hasMessageWalls)
         ? 1200
         : 3
     ] + ":";
 
-    // "User:"
-    userPrefix = wk.wgFormattedNamespaces[3] + ":";
+    // "User talk:"
+    userPrefix = this.globals.wgFormattedNamespaces[3] + ":";
 
     // Array of extant usernames with prefix
     names = [];
     entries = [];
 
-    // Get wellformed, formatted namespace numbers or category names
-    $getUsers = this.getValidatedEntries(paramEntries);
+    // Get wellformed, formatted usernames
+    $getUsers = this.getValidatedEntries(paramEntries, "recipients");
 
     // Once acquired, apply to names array or pass along rejection message
     $getUsers.then(function (paramResults) {
@@ -1362,7 +1451,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     }, $returnUsers.reject.bind($));
 
     // Log paramResults
-    if (DEBUG) {
+    if (this.flags.debug) {
       console.log(names);
     }
 
@@ -1370,7 +1459,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     $returnUsers.notify("logStatusCheckingUsernames");
 
     // Iterate over provided list of usernames
-    this.utility.timer = this.setDynamicTimeout(function () {
+    this.timer = this.setDynamicTimeout(function () {
       if (counter === names.length) {
 
         if (entries.length) {
@@ -1388,7 +1477,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Once acquired, add pages to array
       $getUser.always($addUser.notify);
 
-    }.bind(this), this.interval);
+    }.bind(this), this.config.interval);
 
     /**
      * @description For each username of <code>paramEntries</code> that is
@@ -1399,13 +1488,13 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * <code>$returnUsers.notify</code>.
      */
     $addUser.progress(function (paramResults, paramStatus, paramXHR) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log(paramResults, paramStatus, paramXHR);
       }
 
       if (paramStatus !== "success" || paramXHR.status !== 200) {
         $returnUsers.notify("logErrorNoUserData", names[counter++]);
-        return this.utility.timer.iterate();
+        return this.timer.iterate();
       }
 
       if (paramResults.user && paramResults.user.edits !== -1) {
@@ -1415,7 +1504,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         $returnUsers.notify("logErrorNoSuchPage", names[counter++]);
       }
 
-      return this.utility.timer.iterate();
+      return this.timer.iterate();
     }.bind(this));
 
     return $returnUsers.promise();
@@ -1495,7 +1584,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     }, $returnPages.reject.bind($));
 
     // Iterate over user input entries
-    this.utility.timer = this.setDynamicTimeout(function () {
+    this.timer = this.setDynamicTimeout(function () {
       if (counter === names.length) {
         $addPages.resolve();
 
@@ -1526,7 +1615,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Once acquired, add pages to array
       $getPages.always($addPages.notify);
 
-    }.bind(this), this.interval);
+    }.bind(this), this.config.interval);
 
     /**
      * @description Once the member pages from the specific category or
@@ -1540,13 +1629,13 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * call to iterate the timer.
      */
     $addPages.progress(function (paramResults, paramStatus, paramXHR) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log(paramResults, paramStatus, paramXHR);
       }
 
       if (paramStatus !== "success" || paramXHR.status !== 200) {
         $returnPages.notify("logErrorFailedFetch", names[counter++]);
-        return this.utility.timer.iterate();
+        return this.timer.iterate();
       }
 
       // Define data
@@ -1555,7 +1644,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // If page doesn't exist, add log entry and continue to next iteration
       if (data == null || data.length === 0) {
         $returnPages.notify("logErrorNoSuchPage", names[counter++]);
-        return this.utility.timer.iterate();
+        return this.timer.iterate();
       }
 
       // Add extant page titles to the appropriate submission property
@@ -1576,7 +1665,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       }
 
       // On to the next iteration
-      return this.utility.timer.iterate();
+      return this.timer.iterate();
     }.bind(this));
 
     return $returnPages.promise();
@@ -1759,7 +1848,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     paramName = paramName.toLowerCase();
 
     // Set parameter value or first option as index
-    selectedIndex = wk.parseInt(paramIndex, 10) || 0;
+    selectedIndex = window.parseInt(paramIndex, 10) || 0;
 
     // Listing of selectable dropdown options
     options = "";
@@ -1958,8 +2047,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
   main.resetModal = function () {
 
     // Cancel the extant timer if applicable
-    if (this.utility.timer && !this.utility.timer.isComplete) {
-      this.utility.timer.cancel();
+    if (this.timer && !this.timer.isComplete) {
+      this.timer.cancel();
     }
 
     // Add log message if i18n parameters passed
@@ -2286,7 +2375,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     dropdownArgs = ["scene", sceneNames, enumScene.POSITION];
 
     // New defaultArgs object logged
-    if (DEBUG) {
+    if (this.flags.debug) {
       console.log(dropdownArgs);
     }
 
@@ -2332,7 +2421,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {object} - A new <code>Modal</code> instance
    */
   main.buildModal = function () {
-    return new wk.dev.modal.Modal({
+    return new window.dev.modal.Modal({
       content: this.buildModalScene(this.Scenes[this.Utility.FIRST_SCENE].NAME),
       id: this.Selectors.ID_MODAL_CONTAINER,
       size: "medium",
@@ -2454,7 +2543,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     }.bind(this));
 
     // Log modal instance variable
-    if (DEBUG) {
+    if (this.flags.debug) {
       console.log("this.modal: ", this.modal);
     }
   };
@@ -2497,9 +2586,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {void}
    */
   main.handleSubmit = function () {
-    if (this.utility.timer && !this.utility.timer.isComplete) {
-      if (DEBUG) {
-        console.dir(this.utility.timer);
+    if (this.timer && !this.timer.isComplete) {
+      if (this.flags.debug) {
+        console.dir(this.timer);
       }
       return;
     }
@@ -2608,7 +2697,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Only wellformed integers should be included as f-n-r indices
       indices = $indices.split(",").map(function (paramEntry) {
         if (this.isInteger(paramEntry.trim())) {
-          return wk.parseInt(paramEntry, 10);
+          return window.parseInt(paramEntry, 10);
         }
       }.bind(this)).filter(function (paramEntry) {
         return paramEntry != null; // Avoid cases of [undefined]
@@ -2627,7 +2716,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         isUserRegex, $target, $content, indices);
 
       // Check closure scope's variables under [[Scopes]]
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.dir(replaceOccurrences);
       }
     }
@@ -2648,8 +2737,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     $getNextPage = new $.Deferred();
 
     // Log flag for inspection
-    if (DEBUG) {
-      console.log("hasMessageWalls: ", this.utility.hasMessageWalls);
+    if (this.flags.debug) {
+      console.log("hasMessageWalls: ", this.info.hasMessageWalls);
     }
 
     /**
@@ -2665,9 +2754,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      */
     $getPages = new $.Deferred(function ($paramOuter) {
       new $.Deferred(function ($paramInner) {
-        (!isMessaging || this.utility.hasMessageWalls != null)
+        (!isMessaging || this.info.hasMessageWalls != null)
           ? $paramInner.resolve().promise()
-          : wk.wgMessageWallsExist.then(
+          : window.wgMessageWallsExist.then(
               function () {
                 return $paramInner.resolve(true).promise();
               }.bind(this),
@@ -2679,7 +2768,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       }.bind(this)).then(
         function (paramHasWalls) {
           if (paramHasWalls != null) {
-            this.utility.hasMessageWalls = paramHasWalls;
+            this.info.hasMessageWalls = paramHasWalls;
           }
 
           // Get list of wellformed pages/usernames or member pages
@@ -2714,7 +2803,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       pages = paramResults;
 
       // Log pages list (members or wellformed pages)
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log("$getPages: ", pages);
       }
 
@@ -2729,7 +2818,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       }
 
       // Iterate over pages
-      this.utility.timer = this.setDynamicTimeout(function () {
+      this.timer = this.setDynamicTimeout(function () {
         if (counter === pages.length) {
           $getNextPage.resolve();
           $postPages.resolve("logSuccessEditingComplete");
@@ -2741,7 +2830,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           // Grab data, extend parameters, then edit the page
           $getPageContent.always($postPages.notify);
         }
-      }.bind(this), this.interval);
+      }.bind(this), this.config.interval);
     }.bind(this));
 
     /**
@@ -2783,7 +2872,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * the next page to be edited.
      */
     $postPages.progress(function (paramResults) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log("$postPages results: ", paramResults);
       }
 
@@ -2798,7 +2887,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           }
         };
 
-        if (!TESTING) {
+        if (!this.flags.testing) {
           // "appendtext" or "prependtext"
           config.parameters[$action.value.toLowerCase() + "text"] = $content;
         }
@@ -2824,13 +2913,13 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           !this.isThisAn("Array", data.revisions)
         ) {
           this.addModalLogEntry("logErrorEditing", pages[counter++]);
-          return this.utility.timer.iterate();
+          return this.timer.iterate();
         }
 
         // Return if page doesn't exist to the server
         if (pageIndex === "-1") {
           this.addModalLogEntry("logErrorNoSuchPage", pages[counter++]);
-          return this.utility.timer.iterate();
+          return this.timer.iterate();
         }
 
         config = {
@@ -2852,9 +2941,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         if (newText === config.parameters.text) {
           // Error: No instances of $1 found in $2.
           this.addModalLogEntry("logErrorNoMatch", $target, pages[counter++]);
-          return this.utility.timer.iterate();
+          return this.timer.iterate();
         } else {
-          if (!TESTING) {
+          if (!this.flags.testing) {
             config.parameters.text = newText;
           }
         }
@@ -2864,7 +2953,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         config = [
           {
             handler: "postTalkPageTopic",
-            parameters: (TESTING) ? {} : {
+            parameters: (this.flags.testing) ? {} : {
               sectiontitle: $byline,
               text: $body,
               title: pages[counter],
@@ -2872,17 +2961,17 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
           },
           {
             handler: "postMessageWallThread",
-            parameters: (TESTING) ? {} : {
+            parameters: (this.flags.testing) ? {} : {
               messagetitle: $byline,
               body: $body,
               pagetitle: pages[counter],
             }
           },
-        ][+this.utility.hasMessageWalls];
+        ][+this.info.hasMessageWalls];
       }
 
       // Log all config handlers and parameters
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log("Config: ", config);
       }
 
@@ -2904,7 +2993,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * page back onto the <code>pages</code> stack.
      */
     $getNextPage.progress(function (paramData) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log("$getNextPage results: ", paramData);
       }
 
@@ -2915,12 +3004,13 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       // Success differs depending on status of message walls on wiki
       if (
         (
-          (!isMessaging || (isMessaging && !this.utility.hasMessageWalls)) &&
+          (!isMessaging || (isMessaging && !this.info.hasMessageWalls)) &&
           paramData.edit &&
           paramData.edit.result === "Success"
         ) ||
         (
-          isMessaging && this.utility.hasMessageWalls && paramData.status
+          isMessaging && this.info.hasMessageWalls && paramData.status &&
+          paramData.statusText !== "error"
         )
       ) {
         this.addModalLogEntry("logSuccessEditing", pages[counter++]);
@@ -2938,7 +3028,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
       }
 
       // On to the next iteration
-      this.utility.timer.iterate(
+      this.timer.iterate(
         (error === "ratelimited")
           ? this.Utility.DELAY
           : null
@@ -2968,9 +3058,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {void}
    */
   main.handlePreviewing = function () {
-    if (this.utility.timer && !this.utility.timer.isComplete) {
-      if (DEBUG) {
-        console.dir(this.utility.timer);
+    if (this.timer && !this.timer.isComplete) {
+      if (this.flags.debug) {
+        console.dir(this.timer);
       }
       return;
     }
@@ -3011,9 +3101,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      */
     $previewMessage = new $.Deferred(function ($paramOuter) {
       new $.Deferred(function ($paramInner) {
-        (this.utility.hasMessageWalls != null)
-          ? $paramInner.resolve(this.utility.hasMessageWalls).promise()
-          : wk.wgMessageWallsExist.then(
+        (this.info.hasMessageWalls != null)
+          ? $paramInner.resolve(this.info.hasMessageWalls).promise()
+          : window.wgMessageWallsExist.then(
               function () {
                 return $paramInner.resolve(true).promise();
               }.bind(this),
@@ -3024,8 +3114,8 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
             );
       }.bind(this)).then(
         function (paramHasWalls) {
-          if (this.utility.hasMessageWalls == null) {
-            this.utility.hasMessageWalls = paramHasWalls;
+          if (this.info.hasMessageWalls == null) {
+            this.info.hasMessageWalls = paramHasWalls;
           }
 
           return this[(paramHasWalls)
@@ -3048,14 +3138,14 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
      * following the post appending fade-in.
      */
     $previewMessage.done(function (paramResults) {
-      if (DEBUG) {
+      if (this.flags.debug) {
         console.log("$previewMessage results: ", paramResults);
       }
 
       // Bypass handleClear's default functionality via the functions object
       this.handleClear({
         before: this.displayPreview.bind(this, paramResults[
-          (this.utility.hasMessageWalls) ? "body" : "html"]),
+          (this.info.hasMessageWalls) ? "body" : "html"]),
         after: this.attachPreviewEvents.bind(this),
       });
     }.bind(this));
@@ -3081,11 +3171,11 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    */
   main.handleToggle = function () {
     if (
-      !this.utility.timer ||
-      (this.utility.timer && this.utility.timer.isComplete)
+      !this.timer ||
+      (this.timer && this.timer.isComplete)
     ) {
-      if (DEBUG) {
-        console.dir(this.utility.timer);
+      if (this.flags.debug) {
+        console.dir(this.timer);
       }
       return;
     }
@@ -3106,7 +3196,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
         text: "buttonPause",
         method: "resume",
       }
-    ][+this.utility.timer.isPaused];
+    ][+this.timer.isPaused];
 
     // Add status log entry
     this.addModalLogEntry(config.message);
@@ -3115,7 +3205,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     $toggle.text(this.i18n.msg(config.text).escape());
 
     // Either resume or pause the setDynamicTimeout
-    this.utility.timer[config.method]();
+    this.timer[config.method]();
   };
 
   /**
@@ -3124,17 +3214,18 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * it cancels the timer, adds a relevant status log entry, and re-enables the
    * standard editing buttons in the modal <code>footer</code>. If the timer is
    * presently not running, the method simply returns and exits. The timer is
-   * logged in the console if <code>DEBUG</code> is set to <code>true</code>.
+   * logged in the console if <code>this.flags.debug</code> is set to
+   * <code>true</code>.
    *
    * @returns {void}
    */
   main.handleCancel = function () {
     if (
-      !this.utility.timer ||
-      (this.utility.timer && this.utility.timer.isComplete)
+      !this.timer ||
+      (this.timer && this.timer.isComplete)
     ) {
-      if (DEBUG) {
-        console.dir(this.utility.timer);
+      if (this.flags.debug) {
+        console.dir(this.timer);
       }
       return;
     } else {
@@ -3163,9 +3254,9 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @returns {void}
    */
   main.handleClear = function (paramInput) {
-    if (this.utility.timer && !this.utility.timer.isComplete) {
-      if (DEBUG) {
-        console.dir(this.utility.timer);
+    if (this.timer && !this.timer.isComplete) {
+      if (this.flags.debug) {
+        console.dir(this.timer);
       }
       return;
     }
@@ -3219,26 +3310,34 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @description The confusingly named <code>main.init</code> function serves
    * as a pseudo-constructor of the MassEdit class instance .Through the
    * <code>descriptor</code> passed to <code>init.main</code>'s invocation of
-   * <code>Object.create</code> sets the <code>i18n</code>,
+   * <code>Object.create</code> sets the <code>i18n</code>, <code>config</code>,
    * <code>interval</code>, and <code>placement</code> instance properties, this
-   * function sets default values for <code>modal</code> and <code>timer</code>
+   * function sets default values for <code>modal</code>, <code>timer</code>,
+   * <code>globals</code>, <code>flags</code>, and <code>info</code> properties
    * and defines the toolbar element and its associated event listener, namely
-   * <code>displayModal</code>.
+   * <code>displayModal</code>. The method also populates and returns an
+   * <code>object</code> containing methods and aliases for addition to
+   * <code>window.dev.massEdit.exports</code>, a container for public, exposed
+   * methods externally accessible for post-load debugging purposes.
    * <br />
    * <br />
    * Following this function's invocation, the MassEdit class instance will have
-   * a total of five instance variables, namely, <code>i18n</code>,
-   * <code>placement</code>, <code>interval</code>, <code>modal</code>, and
-   * <code>utility</code>. All other functionality related to MassEdit is stored
-   * in the class instance prototype, the <code>main</code> namespace object,
-   * for convenience.
+   * a total of seven instance variables, namely, <code>i18n</code>,
+   * <code>config</code>, <code>flags</code>, <code>globals</code>,
+   * <code>modal</code>, <code>timer</code>, and <code>info</code>. All other
+   * functionality related to MassEdit is stored in the class instance
+   * prototype, the <code>main</code> namespace object, for convenience.
    *
-   * @returns {void}
+   * @returns {object} exports - Methods exposed via <code>module.exports</code>
    */
   main.init = function () {
 
     // Declarations
-    var $toolItem, toolText;
+    var i, n, $toolItem, toolText, exports, flags, flag, publicMethod;
+
+    // Definitions
+    exports = {};
+    flags = Object.keys(this.Flags);
 
     // I18n config for wiki's content language
     this.i18n.useContentLang();
@@ -3246,19 +3345,24 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     // Initialize new modal property
     this.modal = {};
 
-    // New helper object for local config
-    this.utility = {};
-
     // Initialize a new dynamic timer object
-    this.utility.timer = null;
+    this.timer = null;
 
-    // New instance boolean property
-    this.utility.hasMessageWalls = null;
+    // Cache fetched globals
+    this.globals = Object.freeze(mw.config.get(this.Globals));
 
-    // View instance props and prototype
-    if (DEBUG) {
-      console.dir(this);
-    }
+    // Set default null placeholder value
+    this.info = {
+      hasMessageWalls: null,
+      isUCP: window.parseFloat(this.globals.wgVersion) > 1.19,
+      isFandom: this.globals.wgCookieDomain === ".fandom.com",
+    };
+
+    // Replacement for previous script-global constants; apply default values
+    this.flags = {
+      debug: this.Flags.DEBUG,
+      testing: this.Flags.TESTING,
+    };
 
     // Text to display in the tool element
     toolText = this.i18n.msg("buttonScript").plain();
@@ -3270,7 +3374,17 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
     $toolItem.on("click", this.displayModal.bind(this));
 
     // Either append or prepend the tool to the target
-    $(this.placement.element)[this.placement.type]($toolItem);
+    $(this.config.placement.element)[this.config.placement.type]($toolItem);
+
+    // Assemble MassEdit instance's public methods for module.exports
+    for (i = 0, n = flags.length; i < n; i++) {
+      flag = flags[i].toLowerCase();
+      publicMethod = "toggle" + this.capitalize(flag);
+      exports[publicMethod] = this.toggleFlag.bind(this, flag);
+    }
+
+    // Return public methods to be added to module.exports object
+    return exports;
   };
 
   /****************************************************************************/
@@ -3298,7 +3412,7 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
 
     // Definitions
     config = {};
-    loader = wk.dev.placement.loader;
+    loader = window.dev.placement.loader;
 
     try {
       config.element = loader.element(paramConfig.element);
@@ -3339,18 +3453,27 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * @return {number} - Adjusted interval
    */
   init.defineInterval = function (paramInterval) {
+
+    // Declarations
+    var wgUserGroups, isNumber;
+
+    // Definitions
+    wgUserGroups = mw.config.get("wgUserGroups");
+    isNumber = (typeof value === "number" && window.isFinite(paramInterval) &&
+      !window.isNaN(paramInterval));
+
     if (
-      wk.wgUserGroups.indexOf("bot") !== -1 &&
-      (paramInterval < this.Utility.BOT_INTERVAL || wk.isNaN(paramInterval))
+      wgUserGroups.indexOf("bot") !== -1 &&
+      (paramInterval < this.Utility.BOT_INTERVAL || !isNumber)
     ) {
       return this.Utility.BOT_INTERVAL; // Reset to max 80 edits/minute
     } else if (
-      wk.wgUserGroups.indexOf("user") !== -1 &&
-      (paramInterval < this.Utility.STD_INTERVAL || wk.isNaN(paramInterval))
+      wgUserGroups.indexOf("user") !== -1 &&
+      (paramInterval < this.Utility.STD_INTERVAL || !isNumber)
     ) {
       return this.Utility.STD_INTERVAL; // Reset to max 40 edits/minute
     } else {
-      return wk.parseInt(paramInterval, 10);
+      return window.parseInt(paramInterval, 10);
     }
   };
 
@@ -3363,11 +3486,16 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * to coordinate the script setup madness in a single method, validating all
    * user input by means of helper method invocation and setting all instance
    * properties of the MassEdit class instance. Once the <code>descriptor</code>
-   * <code>object</code>  has been assembled containing the relevant instance
+   * <code>object</code> has been assembled containing the relevant instance
    * variables for placement, edit interval, and i18n messages, the method calls
    * <code>Object.create</code> to construct a new MassEdit class instance,
    * passing the <code>descriptor</code> and the <code>main</code> namespace
-   * <code>object</code> as the instance's prototype.
+   * <code>object</code> as the instance's prototype. Once the new instance is
+   * created and added as a property of the <code>init</code> object, the method
+   * creates a new protected property of <code>window.dev.massEdit</code> called
+   * <code>exports</code> used to store exposed public methods for use in
+   * post-load debugging. At the method's end, a <code>mw.hook</code> is fired
+   * for potential coordination with other scripts or user code.
    * <br />
    * <br />
    * The separation of setup code and MassEdit functionality code into distinct
@@ -3377,114 +3505,157 @@ require(["jquery", "mw", "wikia.window", "wikia.nirvana"],
    * This will assist in debugging should an issue arise with either the setup
    * or the script's functionality itself.
    *
+   * @param {undefined} paramUsing - Returned from <code>mw.loader.using</code>
    * @param {object} paramLang - i18n <code>object</code> returned from hook
    * @returns {void}
    */
-  init.main = function (paramLang) {
+  init.main = function (paramUsing, paramLang) {
 
     // Declarations
-    var i, n, array, descriptor, parameter, lowercase, method, property,
-      descriptorProperties, configObject;
+    var i, n, configTypes, descriptor, parameter, lowercase, method, property,
+      descriptorProperties, userConfig, field, instanceFields, initExports,
+      instanceExports;
 
-    // Two of the three local instance variables
-    array = ["Interval", "Placement"];
+    // Two types of config object property
+    configTypes = ["Interval", "Placement"];
+
+    // MassEdit object instance's local fields and values
+    instanceFields = [
+      {
+        name: "i18n",
+        value: paramLang,
+      },
+      {
+        name: "config",
+        value: {},
+      },
+    ];
 
     // Support both MassEdit config and legacy Message config
-    configObject = wk.MassEditConfig || wk.configMessage || {};
-
-    if (DEBUG) {
-      console.log("Config: ", configObject);
-    }
+    userConfig = window.MassEditConfig || window.configMessage || {};
 
     // New Object.create descriptor object
     descriptor = {};
 
+    // Default descriptor access properties
     descriptorProperties = {
       enumerable: true,
       configurable: false,
       writable: false,
     };
 
-    // Set I18n object as instance property
-    descriptor.i18n = $.extend(true, {}, descriptorProperties);
-    descriptor.i18n.value = paramLang;
+    // Assemble new descriptor entries to serve as instance local data
+    for (i = 0, n = instanceFields.length; i < n; i++) {
+      field = instanceFields[i];
 
-    // Reduce copy pasta
-    for (i = 0, n = array.length; i < n; i++) {
+      descriptor[field.name] = $.extend({}, descriptorProperties);
+      descriptor[field.name].value = field.value;
+    }
+
+    // Define and validate user config input
+    for (i = 0, n = configTypes.length; i < n; i++) {
 
       // Definitions
-      property = array[i];
+      property = configTypes[i];
       method = "define" + property;
       lowercase = property.toLowerCase();
-      parameter = (configObject.hasOwnProperty(lowercase))
-        ? configObject[lowercase]
+      parameter = (userConfig.hasOwnProperty(lowercase))
+        ? userConfig[lowercase]
         : null;
 
-      // New descriptor entry
-      descriptor[lowercase] = $.extend(true, {}, descriptorProperties);
-
-      // Define descriptor entry value
-      descriptor[lowercase].value = this[method](parameter);
+      // Define descriptor property value
+      Object.defineProperty(descriptor.config.value, lowercase,
+        $.extend($.extend({}, descriptorProperties), {
+          value: Object.freeze(this[method](parameter)),
+        })
+      );
     }
 
-    // Log init object for inspection
-    if (DEBUG) {
-      console.dir(init);
-    }
+    // Public methods for init object
+    initExports = {
+      observeScript: console.dir.bind(this, this),
+      observeUserConfig: console.dir.bind(this, userConfig),
+    };
 
-    // Create new MassEdit instance
-    Object.create(main, descriptor).init();
+    // Create MassEdit instance, keep for future observation, and store exports
+    instanceExports = (this.instance = Object.create(main, descriptor)).init();
+
+    // Once instance is created, expose public methods for external debugging
+    Object.defineProperty(module, "exports",
+      $.extend($.extend({}, descriptorProperties), {
+        value: Object.freeze($.extend(initExports, instanceExports)),
+      })
+    );
+
+    // Dispatch hook with window.dev.massEdit once initialization is complete
+    mw.hook(this.Utility.HOOK_NAME).fire(module);
   };
 
   /**
-   * @description This function is invoked as many times as there are external
-   * dependencies, serving as the primary hook handler for each of the required
-   * events denoted in <code>init.Dependencies.SCRIPTS</code>. Once all
-   * dependencies have been successfully loaded and the hooks fired, the
-   * function loads I18n-js messages and invokes <code>init.main</code> as
-   * the callback function.
+   * @description Originally a pair of functions called <code>init.load</code>
+   * and <code>init.preload</code>, this function is used to load all required
+   * external dependencies from Dev and attach <code>mw.hook</code> listeners.
+   * Once all scripts have been loaded and their events fired, the I18n-js
+   * method <code>loadMessages</code> is invoked, the <code>$.Deferred</code>
+   * promise resolved, and the resultant i18n data passed for subsequent usage
+   * in <code>init.main</code>.
+   * <br />
+   * <br />
+   * As an improvement to the previous manner of loading scripts, this function
+   * first checks to see if the relevant <code>window.dev</code> property of
+   * each script already exists, thus signaling that the script has already been
+   * loaded elsewhere. In such cases, this function will skip that import and
+   * move on to the next rather than blindly reimport the script again as it
+   * did in the previous version.
    *
+   * @param {object} paramDeferred - <code>$.Deferred</code> instance
    * @returns {void}
    */
-  init.load = function () {
-    if (++this.loaded === Object.keys(this.Dependencies.SCRIPTS).length) {
-      wk.dev.i18n.loadMessages(this.Utility.SCRIPT, {
-        cacheVersion: this.Utility.CACHE_VERSION,
-      }).then(this.main.bind(this));
-    }
-  };
-
-  /**
-   * @description This function is only invoked once the ResourceLoader has
-   * successfully loaded the various required <code>mw</code> core modules,
-   * executing this callback on completion. This function is responsible for
-   * assembling the relevant hook event aliases from the listing of hook names
-   * included in <code>init.Dependencies.SCRIPTS</code> that denote the
-   * required external dependencies and libraries required by the script.
-   *
-   * @returns {void}
-   */
-  init.preload = function () {
+  init.load = function (paramDeferred) {
 
     // Declarations
-    var i, n, hooks;
+    var i, n, scripts, current, counter;
 
     // Definitions
-    this.loaded = 0;
-    hooks = Object.keys(this.Dependencies.SCRIPTS);
+    scripts = this.Dependencies.SCRIPTS;
+    counter = scripts.length;
 
-    // Assemble all hooks and attach init.load as handler
-    for (i = 0, n = hooks.length; i < n; i++) {
-      mw.hook(hooks[i]).add(init.load.bind(this));
+    // Check if all scripts are loaded prior to resolving promise
+    paramDeferred.progress(function () {
+      if (--counter === 0) {
+        window.dev.i18n.loadMessages(this.Utility.SCRIPT, {
+          cacheVersion: this.Utility.CACHE_VERSION,
+        }).then(paramDeferred.resolve);
+      }
+    }.bind(this));
+
+    // Initialize external dependencies
+    for (i = 0, n = scripts.length; i < n; i++) {
+      current = scripts[i];
+
+      // Import external dependencies if they haven't already been loaded
+      if (current.DEV == null || !window.dev.hasOwnProperty(current.DEV)) {
+        try { // Gracefully handle UCP-specific issues with importArticle(s)
+          window.importArticle({
+            type: "script",
+            article: current.SCRIPT,
+          });
+        } catch (paramError) {
+          return paramDeferred.reject(this.Utility.SCRIPT + ":", paramError);
+        }
+      }
+
+      // Apply hook handler regardless of load status
+      mw.hook(current.HOOK).add(paramDeferred.notify);
     }
   };
 
-  // Load MW modules
-  mw.loader.using(init.Dependencies.MODULES).then(init.preload.bind(init));
+  // Coordinate loading of all relevant dependencies
+  $.when(
+    mw.loader.using(init.Dependencies.MODULES),      // ResourceLoader modules
+    new $.Deferred(init.load.bind(init)).promise())  // Dev script dependencies
+  .then(init.main.bind(init))
+  .fail(console.error);
 
-  // Load Dev scripts (4x)
-  wk.importArticles({
-    type: "script",
-    articles: Object.values(init.Dependencies.SCRIPTS),
-  });
-});
+}((this.dev = this.dev || {}).massEdit = this.dev.massEdit || {}, this,
+  this.jQuery, this.mediaWiki));
