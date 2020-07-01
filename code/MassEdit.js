@@ -337,33 +337,6 @@
     },
 
     /**
-     * @description This pseudo-enum is used to store the <code>string</code>
-     * names of the various <code>WikipediaGlobal</code> (wg) variables required
-     * by the main MassEdit class instance. These are fetched within the body of
-     * the <code>main.init</code> function via a <code>mw.config.get</code>
-     * invocation and stored in an instance variable property named
-     * <code>main.globals</code> for subsequent usage. This approach replaces
-     * the deprecated approach previously used in the script of assuming the
-     * relevant wg variables exist as properties of the <code>window</code>
-     * object, an assumption that is discouraged in more recent version of MW.
-     *
-     * @readonly
-     * @enum {object}
-     */
-    Globals: {
-      enumerable: true,
-      writable: false,
-      configurable: false,
-      value: Object.freeze([
-        "wgCookieDomain",
-        "wgFormattedNamespaces",
-        "wgLegalTitleChars",
-        "wgUserGroups",
-        "wgVersion",
-      ]),
-    },
-
-    /**
      * @description This pseudo-enum replaces the previous pair of
      * <code>boolean</code> constants housed in the script-global execution
      * context, namely <code>DEBUG</code> and <code>TESTING</code>. This enum
@@ -434,7 +407,7 @@
      * @description This pseudo-enum of the <code>init</code> namespace object
      * used to initialize the script stores data related to the external
      * dependencies and core modules required by the script. It consists of two
-     * properties. The former, a constant <code>object</code> called "SCRIPTS,"
+     * properties. The former, a constant <code>object</code> called "ARTICLES,"
      * originally contained key/value pairs wherein the key was the specific
      * name of the <code>mw.hook</code> and the value was the script's location
      * for use by <code>importArticles.articles</code>. However, this system
@@ -448,6 +421,16 @@
      * <code>mw.loader.using</code>. It may be worth noting for future reference
      * that <code>ext.wikia.LinkSuggest</code> doesn't exist yet in the UCP, so
      * an error will be thrown somewhere if the script is loaded on a UCP wiki.
+     * <br />
+     * <br />
+     * The key for the <code>ARTICLES</code> array entries is as follows:
+     * <pre>
+     * - DEV: The name of the script's property in <code>window.dev</code>
+     * - HOOK: The name of the <code>mw.hook</code> event
+     * - ARTICLE: The location of the script or stylesheet on the Dev wiki
+     * - TYPE: Either "script" for JS scripts or "style" for CSS stylesheets
+     * - MODULE: Name of the temporary ResourceLoader module used to async load
+     * </pre>
      *
      * @readonly
      * @enum {object}
@@ -457,32 +440,40 @@
       writable: false,
       configurable: false,
       value: Object.freeze({
-        SCRIPTS: Object.freeze([
+        ARTICLES: Object.freeze([
           Object.freeze({
             DEV: "i18n",
             HOOK: "dev.i18n",
-            SCRIPT: "u:dev:MediaWiki:I18n-js/code.js",
+            ARTICLE: "u:dev:MediaWiki:I18n-js/code.js",
+            TYPE: "script",
+            MODULE: "local.massEdit.I18n-js",
           }),
           Object.freeze({
             DEV: "placement",
             HOOK: "dev.placement",
-            SCRIPT: "u:dev:MediaWiki:Placement.js",
+            ARTICLE: "u:dev:MediaWiki:Placement.js",
+            TYPE: "script",
+            MODULE: "local.massEdit.Placement",
           }),
           Object.freeze({
             DEV: "modal",
             HOOK: "dev.modal",
-            SCRIPT: "u:dev:MediaWiki:Modal.js",
+            ARTICLE: "u:dev:MediaWiki:Modal.js",
+            TYPE: "script",
+            MODULE: "local.massEdit.Modal",
           }),
           Object.freeze({
             DEV: null,
             HOOK: "dev.enablewallext",
-            SCRIPT: "u:dev:MediaWiki:WgMessageWallsExist.js",
+            ARTICLE: "u:dev:MediaWiki:WgMessageWallsExist.js",
+            TYPE: "script",
+            MODULE: "local.massEdit.WgMessageWallsExist",
           }),
         ]),
         MODULES: Object.freeze([
-          "mediawiki.util",
-          "mediawiki.user",
           "ext.wikia.LinkSuggest",
+          "mediawiki.user",
+          "mediawiki.util",
         ]),
       }),
     },
@@ -513,6 +504,34 @@
           "prepend",
         ]),
       }),
+    },
+
+    /**
+     * @description This pseudo-enum is used to store the <code>string</code>
+     * names of the various <code>WikipediaGlobal</code> (wg) variables required
+     * by the main MassEdit class instance and <code>init</code> object. These
+     * are fetched within the body of the <code>init.preload</code> function via
+     * a <code>mw.config.get</code> invocation and stored in an instance
+     * variable property named <code>globals</code> for subsequent usage. This
+     * approach replaces the deprecated approach previously used in the script
+     * of assuming the relevant wg variables exist as properties of the
+     * <code>window</code> object, an assumption that is discouraged in more
+     * recent version of MediaWiki.
+     *
+     * @readonly
+     * @enum {object}
+     */
+    Globals: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze([
+        "wgFormattedNamespaces",
+        "wgLegalTitleChars",
+        "wgLoadScript",
+        "wgUserGroups",
+        "wgVersion",
+      ]),
     },
 
     /**
@@ -3348,15 +3367,8 @@
     // Initialize a new dynamic timer object
     this.timer = null;
 
-    // Cache fetched globals
-    this.globals = Object.freeze(mw.config.get(this.Globals));
-
     // Set default null placeholder value
-    this.info = {
-      hasMessageWalls: null,
-      isUCP: window.parseFloat(this.globals.wgVersion) > 1.19,
-      isFandom: this.globals.wgCookieDomain === ".fandom.com",
-    };
+    this.info.hasMessageWalls = null;
 
     // Replacement for previous script-global constants; apply default values
     this.flags = {
@@ -3454,21 +3466,20 @@
    */
   init.defineInterval = function (paramInterval) {
 
-    // Declarations
-    var wgUserGroups, isNumber;
+    // Declaration
+    var isNumber;
 
-    // Definitions
-    wgUserGroups = mw.config.get("wgUserGroups");
+    // Definition
     isNumber = (typeof value === "number" && window.isFinite(paramInterval) &&
       !window.isNaN(paramInterval));
 
     if (
-      wgUserGroups.indexOf("bot") !== -1 &&
+      this.globals.wgUserGroups.indexOf("bot") !== -1 &&
       (paramInterval < this.Utility.BOT_INTERVAL || !isNumber)
     ) {
       return this.Utility.BOT_INTERVAL; // Reset to max 80 edits/minute
     } else if (
-      wgUserGroups.indexOf("user") !== -1 &&
+      this.globals.wgUserGroups.indexOf("user") !== -1 &&
       (paramInterval < this.Utility.STD_INTERVAL || !isNumber)
     ) {
       return this.Utility.STD_INTERVAL; // Reset to max 40 edits/minute
@@ -3505,16 +3516,19 @@
    * This will assist in debugging should an issue arise with either the setup
    * or the script's functionality itself.
    *
-   * @param {undefined} paramUsing - Returned from <code>mw.loader.using</code>
+   * @param {undefined|function} paramRequire - Via <code>mw.loader.using</code>
    * @param {object} paramLang - i18n <code>object</code> returned from hook
    * @returns {void}
    */
-  init.main = function (paramUsing, paramLang) {
+  init.main = function (paramRequire, paramLang) {
 
     // Declarations
     var i, n, configTypes, descriptor, parameter, lowercase, method, property,
       descriptorProperties, userConfig, field, instanceFields, initExports,
       instanceExports;
+
+    // Cleanup init namespace by deleting temp variables
+    delete this.modules;
 
     // Two types of config object property
     configTypes = ["Interval", "Placement"];
@@ -3528,6 +3542,14 @@
       {
         name: "config",
         value: {},
+      },
+      {
+        name: "info",
+        value: $.extend({}, this.info),
+      },
+      {
+        name: "globals",
+        value: $.extend({}, this.globals),
       },
     ];
 
@@ -3607,6 +3629,17 @@
    * loaded elsewhere. In such cases, this function will skip that import and
    * move on to the next rather than blindly reimport the script again as it
    * did in the previous version.
+   * <br />
+   * <br />
+   * As of the 1st of July update, an extendable framework for the loading of
+   * ResourceLoader modules and Dev external dependencies (scripts and
+   * stylesheets alike) on both UCP wikis and legacy 1.19 wikis has been put
+   * into place, pending UCPification of the aforementioned Dev scripts or the
+   * importation of legacy features to the UCP codebase. To handle the lack of
+   * async callbacks in <code>mw.loader.load</code>, this framework invokes
+   * <code>mw.loader.implement</code> to create temporary, local RL modules that
+   * can then be asynchronously loaded via <code>mw.loader.using</code> and
+   * handled by a dedicated callback.
    *
    * @param {object} paramDeferred - <code>$.Deferred</code> instance
    * @returns {void}
@@ -3614,48 +3647,133 @@
   init.load = function (paramDeferred) {
 
     // Declarations
-    var i, n, scripts, current, counter;
+    var i, n, articles, counter, current, server, params, resource, args,
+      $helper;
 
     // Definitions
-    scripts = this.Dependencies.SCRIPTS;
-    counter = scripts.length;
+    articles = this.Dependencies.ARTICLES;
+    counter = articles.length;
+    $helper = new $.Deferred();
 
-    // Check if all scripts are loaded prior to resolving promise
-    paramDeferred.progress(function () {
+    /**
+     * @description The utility <code>$.Deferred</code> instance named
+     * <code>$helper</code> is intermittently notified by its enclosing function
+     * whenever a script or stylesheet has been successfully imported. In such
+     * cases, the <code>progress</code> handler determines if a
+     * <code>mw.hook</code> event listener/handler needs to be added to ensure
+     * that the dependencies has loaded in its entirety to a useable state. In
+     * either case, <code>paramDeferred</code> is eventually notified to check
+     * if all dependencies have been loaded.
+     */
+    $helper.progress(function (paramHook, paramRequire) {
+      if (paramHook != null) {
+        mw.hook(paramHook).add(paramDeferred.notify);
+      } else {
+        paramDeferred.notify();
+      }
+    }.bind(this));
+
+    /**
+     * @description The passed <code>$.Deferred</code> argument instance called
+     * <code>paramDeferred</code> is variously notified during the loading of
+     * dependencies by the <code>$helper</code> promise whenever a dependency
+     * has been successfully imported by <code>window.importArticles</code> or
+     * <code>mw.loader.using</code>. The <code>progress</code> handler checks if
+     * all dependencies have been successfully loaded for use before loading the
+     * latest version of cached <code>i18n</code> messages and resolving itself
+     * to pass program execution on to <code>init.main</code>.
+     */
+    paramDeferred.progress(function (paramData) {
       if (--counter === 0) {
+        $helper.resolve();
+
+        // Loaded most recent cached i18n messages
         window.dev.i18n.loadMessages(this.Utility.SCRIPT, {
           cacheVersion: this.Utility.CACHE_VERSION,
         }).then(paramDeferred.resolve);
       }
     }.bind(this));
 
-    // Initialize external dependencies
-    for (i = 0, n = scripts.length; i < n; i++) {
-      current = scripts[i];
+    // Iterate through Dev dependencies and load based on UCP status of wiki
+    for (i = 0, n = articles.length; i < n; i++) {
+      current = articles[i];
 
-      // Import external dependencies if they haven't already been loaded
-      if (current.DEV == null || !window.dev.hasOwnProperty(current.DEV)) {
-        try { // Gracefully handle UCP-specific issues with importArticle(s)
-          window.importArticle({
-            type: "script",
-            article: current.SCRIPT,
-          });
-        } catch (paramError) {
-          return paramDeferred.reject(this.Utility.SCRIPT + ":", paramError);
-        }
+      // Skip loading of loaded dependencies and set hook if applicable
+      if (current.DEV != null && window.dev.hasOwnProperty(current.DEV)) {
+        $helper.notify(current.HOOK);
+        continue;
       }
 
-      // Apply hook handler regardless of load status
-      mw.hook(current.HOOK).add(paramDeferred.notify);
+      // Use standard importArticle approach if legacy wiki
+      if (!this.info.isUCP) {
+        // Use jQuery "load" event to aid in async loading of styles and scripts
+        $(window.importArticle({
+          type: current.TYPE,
+          article: current.ARTICLE,
+        })).on("load", $helper.notify.bind($helper, current.HOOK));
+        continue;
+      }
+
+      // Build url with REST params
+      server = "https://dev.fandom.com";
+      params = "?" + $.param({
+        mode: "articles",
+        only: current.TYPE + "s",
+        articles: current.ARTICLE,
+      });
+
+      // mw.loader.implement default definitions
+      resource = [server + this.globals.wgLoadScript + params];
+      args = [resource, null]; // Order for mw.loader.implement if script
+
+      // Define temp local modules to sidestep mw.loader.load's lack of callback
+      mw.loader.implement.apply(mw.loader, $.merge([current.MODULE],
+        (current.TYPE === "script")
+          ? $.merge([], args)               // module, script, null
+          : $.merge([], args).reverse()));  // module, null, style
+
+      // Load script/stylesheet once temporary module has been defined
+      mw.loader.using(current.MODULE)
+        .then($helper.notify.bind($helper, current.HOOK))
+        .fail(paramDeferred.reject);
     }
+  };
+
+  /**
+   * @description This particular loading function is used simply to calculate
+   * and inject some pre-load <code>init</code> object properties prior to the
+   * loading of required external dependencies or ResourceLoader modules. As the
+   * loading process depends on this function's set informational properies, the
+   * function is called prior to the initial <code>init.load</code> invocation
+   * at the start of the script's execution and returns a reference to the
+   * <code>init</code> object (presumably) for use in subsequent method chaining
+   * purposes.
+   *
+   * @returns {object} init - Reference to <code>init</code> object for chaining
+   */
+  init.preload = function () {
+
+    // Fetch, define, and cache globals for use in init and MassEdit instance
+    this.globals = Object.freeze(mw.config.get(this.Globals));
+
+    // Object for informational booleans (extended in MassEdit init method)
+    this.info = {
+      isUCP: window.parseFloat(this.globals.wgVersion) > 1.19,
+    };
+
+    // Which default ResourceLoader modules to load (UCP-dependent)
+    this.modules = this.Dependencies.MODULES.slice(+this.info.isUCP);
+
+    // Return reference for method chaining purposes
+    return this;
   };
 
   // Coordinate loading of all relevant dependencies
   $.when(
-    mw.loader.using(init.Dependencies.MODULES),      // ResourceLoader modules
-    new $.Deferred(init.load.bind(init)).promise())  // Dev script dependencies
+    mw.loader.using((init.preload.call(init)).modules),
+    new $.Deferred(init.load.bind(init)).promise())
   .then(init.main.bind(init))
-  .fail(console.error);
+  .fail(console.error.bind(console, init.Utility.SCRIPT));
 
 }((this.dev = this.dev || {}).massEdit = this.dev.massEdit || {}, this,
   this.jQuery, this.mediaWiki));
