@@ -652,7 +652,7 @@
       this.flags.testing;
   };
 
-    /**
+  /**
    * @description This helper method serves as the primary means by which all
    * external post-load toggling of the debug and test modes may be undertaken.
    * This particular implementation makes use of the bitwise XOR operator to
