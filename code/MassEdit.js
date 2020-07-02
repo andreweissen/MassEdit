@@ -35,9 +35,8 @@
  * </pre>
  */
 
-/*jslint browser, this:true */
-/*eslint-env es6 */
-/*eslint-disable */
+/* jshint -W030, esversion: 6, undef: true, unused: true, eqnull: true,
+   laxbreak: true, bitwise: false */
 
 ;(function (module, window, $, mw) {
   "use strict";
@@ -3665,7 +3664,7 @@
      * either case, <code>paramDeferred</code> is eventually notified to check
      * if all dependencies have been loaded.
      */
-    $helper.progress(function (paramHook, paramRequire) {
+    $helper.progress(function (paramHook) {
       if (paramHook != null) {
         mw.hook(paramHook).add(paramDeferred.notify);
       } else {
@@ -3683,7 +3682,7 @@
      * latest version of cached <code>i18n</code> messages and resolving itself
      * to pass program execution on to <code>init.main</code>.
      */
-    paramDeferred.progress(function (paramData) {
+    paramDeferred.progress(function () {
       if (--counter === 0) {
         $helper.resolve();
 
