@@ -4,9 +4,9 @@
  * @file Essentially "bot software lite"; task automation and bulk editing tool
  * @author Eizen <dev.wikia.com/wiki/User_talk:Eizen>
  * @license CC-BY-SA 3.0
- * @external "mediawiki.util"
- * @external "mediawiki.user"
  * @external "ext.wikia.LinkSuggest"
+ * @external "mediawiki.user"
+ * @external "mediawiki.util"
  * @external "I18n-js"
  * @external "Modal.js"
  * @external "Placement.js"
@@ -16,6 +16,7 @@
 /**
  * <pre>
  * <em>Table of contents</em>        <em>Summary</em>
+ * - Prototype/Setup namespaces      Namespace object declarations/definitions
  * - Prototype pseudo-enums          Storage for MassEdit utility constants
  * - Setup pseudo-enums              Storage for <code>init</code> constants
  * - Prototype Utility methods       General purpose helper functions
@@ -35,8 +36,8 @@
  * </pre>
  */
 
-/* jshint -W030, esversion: 6, undef: true, unused: true, eqnull: true,
-   laxbreak: true, bitwise: false */
+/* jshint -W030, undef: true, unused: true, eqnull: true, laxbreak: true,
+   bitwise: false */
 
 ;(function (module, window, $, mw) {
   "use strict";
@@ -47,27 +48,36 @@
   }
   module.isLoaded = true;
 
+  /****************************************************************************/
+  /*                       Prototype/Setup namespaces                         */
+  /****************************************************************************/
+
+  /**
+   * @description All script functionality is contained in a pair of namespace
+   * objects housed in the module-global scope. Originally declared as ES2015
+   * <code>const</code>s due to JSMinPlus treating the keyword as permissible,
+   * the namespaces were subsequently redeclared with <code>var</code> for the
+   * purposes of ensuring ES5 consistency/compatibility.
+   */
+  var main, init;
+
   /**
    * @description The <code>main</code> namespace object is used as a class
-   * prototype for the MassEdit class instance. It contains methods and
-   * properties related to the actual MassEdit functionality and application
-   * logic, keeping in a separate object all the methods used to initialize the
-   * script itself.
-   *
-   * @const
+   * prototype for the MassEdit class instance created by <code>init</code>. It
+   * contains methods and properties related to the actual MassEdit
+   * functionality and application logic, keeping in a separate object all the
+   * methods used to load and initialize the script itself.
    */
-  const main = {};
+  main = {};
 
   /**
    * @description The <code>init</code> namespace object contains methods and
-   * properties related to the initialization of the MassEdit script. The
+   * properties related to the setup/initialization of the MassEdit script. The
    * methods in this namespace object are responsible for loading external
    * dependencies, validating user input, setting config, and creating a new
-   * MassEdit instance once setup is complete.
-   *
-   * @const
+   * MassEdit instance once script setup is complete.
    */
-  const init = {};
+  init = {};
 
   /****************************************************************************/
   /*                         Prototype pseudo-enums                           */
@@ -675,7 +685,7 @@
       this.flags[paramFlagName] || this.Flags[paramFlagName];
 
     // Toggle via bitwise then type coerce back to boolean before redefining
-    console.log(paramFlagName + ":",
+    window.console.log(paramFlagName + ":",
       this.flags[paramFlagName] = !!(this.flags[paramFlagName] ^= 1));
   };
 
@@ -764,7 +774,7 @@
 
       // Log regex and intended replacement
       if (this.flags.debug) {
-        console.log(regex, replacement);
+        window.console.log(regex, replacement);
       }
 
       // Init counter in case of replace function
@@ -803,7 +813,7 @@
       scenes = this.modal.scenes = $.storage.get(this.Utility.LS_KEY) || {};
     } catch (paramError) {
       if (this.flags.debug) {
-        console.error(paramError);
+        window.console.error(paramError);
       }
 
       // Use fallback if localStorage throws
@@ -831,8 +841,8 @@
       // Make sure new scenes are added to both localStorage and modal.scenes
       if (this.flags.debug) {
         try {
-          console.log("modal.scenes: ", this.modal.scenes);
-          console.log("localStorage: ",
+          window.console.log("modal.scenes: ", this.modal.scenes);
+          window.console.log("localStorage: ",
             JSON.parse(window.localStorage.getItem(this.Utility.LS_KEY)));
         } catch (paramError) {}
       }
@@ -1470,7 +1480,7 @@
 
     // Log paramResults
     if (this.flags.debug) {
-      console.log(names);
+      window.console.log(names);
     }
 
     // Indicate checking is in progress
@@ -1507,7 +1517,7 @@
      */
     $addUser.progress(function (paramResults, paramStatus, paramXHR) {
       if (this.flags.debug) {
-        console.log(paramResults, paramStatus, paramXHR);
+        window.console.log(paramResults, paramStatus, paramXHR);
       }
 
       if (paramStatus !== "success" || paramXHR.status !== 200) {
@@ -1648,7 +1658,7 @@
      */
     $addPages.progress(function (paramResults, paramStatus, paramXHR) {
       if (this.flags.debug) {
-        console.log(paramResults, paramStatus, paramXHR);
+        window.console.log(paramResults, paramStatus, paramXHR);
       }
 
       if (paramStatus !== "success" || paramXHR.status !== 200) {
@@ -2394,7 +2404,7 @@
 
     // New defaultArgs object logged
     if (this.flags.debug) {
-      console.log(dropdownArgs);
+      window.console.log(dropdownArgs);
     }
 
     // Init string HTML
@@ -2562,7 +2572,7 @@
 
     // Log modal instance variable
     if (this.flags.debug) {
-      console.log("this.modal: ", this.modal);
+      window.console.log("this.modal: ", this.modal);
     }
   };
 
@@ -2606,7 +2616,7 @@
   main.handleSubmit = function () {
     if (this.timer && !this.timer.isComplete) {
       if (this.flags.debug) {
-        console.dir(this.timer);
+        window.console.dir(this.timer);
       }
       return;
     }
@@ -2735,7 +2745,7 @@
 
       // Check closure scope's variables under [[Scopes]]
       if (this.flags.debug) {
-        console.dir(replaceOccurrences);
+        window.console.dir(replaceOccurrences);
       }
     }
 
@@ -2756,7 +2766,7 @@
 
     // Log flag for inspection
     if (this.flags.debug) {
-      console.log("hasMessageWalls: ", this.info.hasMessageWalls);
+      window.console.log("hasMessageWalls: ", this.info.hasMessageWalls);
     }
 
     /**
@@ -2822,7 +2832,7 @@
 
       // Log pages list (members or wellformed pages)
       if (this.flags.debug) {
-        console.log("$getPages: ", pages);
+        window.console.log("$getPages: ", pages);
       }
 
       // Listing activities end once members are acquired and shown to the user
@@ -2891,7 +2901,7 @@
      */
     $postPages.progress(function (paramResults) {
       if (this.flags.debug) {
-        console.log("$postPages results: ", paramResults);
+        window.console.log("$postPages results: ", paramResults);
       }
 
       // Addition parameters
@@ -2990,7 +3000,7 @@
 
       // Log all config handlers and parameters
       if (this.flags.debug) {
-        console.log("Config: ", config);
+        window.console.log("Config: ", config);
       }
 
       // Deferred attached to posting of data
@@ -3012,7 +3022,7 @@
      */
     $getNextPage.progress(function (paramData) {
       if (this.flags.debug) {
-        console.log("$getNextPage results: ", paramData);
+        window.console.log("$getNextPage results: ", paramData);
       }
 
       error = (paramData.error && paramData.error.code)
@@ -3078,7 +3088,7 @@
   main.handlePreviewing = function () {
     if (this.timer && !this.timer.isComplete) {
       if (this.flags.debug) {
-        console.dir(this.timer);
+        window.console.dir(this.timer);
       }
       return;
     }
@@ -3157,7 +3167,7 @@
      */
     $previewMessage.done(function (paramResults) {
       if (this.flags.debug) {
-        console.log("$previewMessage results: ", paramResults);
+        window.console.log("$previewMessage results: ", paramResults);
       }
 
       // Bypass handleClear's default functionality via the functions object
@@ -3193,7 +3203,7 @@
       (this.timer && this.timer.isComplete)
     ) {
       if (this.flags.debug) {
-        console.dir(this.timer);
+        window.console.dir(this.timer);
       }
       return;
     }
@@ -3243,7 +3253,7 @@
       (this.timer && this.timer.isComplete)
     ) {
       if (this.flags.debug) {
-        console.dir(this.timer);
+        window.console.dir(this.timer);
       }
       return;
     } else {
@@ -3274,7 +3284,7 @@
   main.handleClear = function (paramInput) {
     if (this.timer && !this.timer.isComplete) {
       if (this.flags.debug) {
-        console.dir(this.timer);
+        window.console.dir(this.timer);
       }
       return;
     }
@@ -3414,37 +3424,37 @@
    * ensure that user input mistakes are handled somewhat gracefully.
    *
    * @param {object} paramConfig - Placement.js-specific config
-   * @returns {object} config - Adjusted Placement.js config
+   * @returns {object} validatedConfig - Adjusted Placement.js config
    */
   init.definePlacement = function (paramConfig) {
 
     // Declarations
-    var config, loader;
+    var validatedConfig, loader;
 
     // Definitions
-    config = {};
+    validatedConfig = {};
     loader = window.dev.placement.loader;
 
     try {
-      config.element = loader.element(paramConfig.element);
+      validatedConfig.element = loader.element(paramConfig.element);
     } catch (e) {
-      config.element = loader.element(this.Placement.DEFAULTS.ELEMENT);
+      validatedConfig.element = loader.element(this.Placement.DEFAULTS.ELEMENT);
     }
 
     try {
-      config.type = loader.type(
+      validatedConfig.type = loader.type(
         (this.Placement.VALID_TYPES.indexOf(paramConfig.type) !== -1)
           ? paramConfig.type
           : this.Placement.DEFAULTS.TYPE
       );
     } catch (e) {
-      config.type = loader.type(this.Placement.DEFAULTS.TYPE);
+      validatedConfig.type = loader.type(this.Placement.DEFAULTS.TYPE);
     }
 
     // Set script name
     loader.script(this.Utility.SCRIPT);
 
-    return config;
+    return Object.freeze(validatedConfig);
   };
 
   /**
@@ -3587,15 +3597,15 @@
       // Define descriptor property value
       Object.defineProperty(descriptor.config.value, lowercase,
         $.extend($.extend({}, descriptorProperties), {
-          value: Object.freeze(this[method](parameter)),
+          value: this[method](parameter),
         })
       );
     }
 
     // Public methods for init object
     initExports = {
-      observeScript: console.dir.bind(this, this),
-      observeUserConfig: console.dir.bind(this, userConfig),
+      observeScript: window.console.dir.bind(this, this),
+      observeUserConfig: window.console.dir.bind(this, userConfig),
     };
 
     // Create MassEdit instance, keep for future observation, and store exports
@@ -3772,7 +3782,7 @@
     mw.loader.using((init.preload.call(init)).modules),
     new $.Deferred(init.load.bind(init)).promise())
   .then(init.main.bind(init))
-  .fail(console.error.bind(console, init.Utility.SCRIPT));
+  .fail(window.console.error.bind(window.console, init.Utility.SCRIPT));
 
 }((this.dev = this.dev || {}).massEdit = this.dev.massEdit || {}, this,
   this.jQuery, this.mediaWiki));
