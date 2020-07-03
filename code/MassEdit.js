@@ -3657,7 +3657,7 @@
 
     // Declarations
     var i, n, articles, counter, current, server, params, resource, args,
-      $helper;
+      $helper, imported;
 
     // Definitions
     articles = this.Dependencies.ARTICLES;
@@ -3715,11 +3715,17 @@
 
       // Use standard importArticle approach if legacy wiki
       if (!this.info.isUCP) {
-        // Use jQuery "load" event to aid in async loading of styles and scripts
-        $(window.importArticle({
+        imported = window.importArticle({
           type: current.TYPE,
           article: current.ARTICLE,
-        })).on("load", $helper.notify.bind($helper, current.HOOK));
+        });
+
+        // Use jQuery "load" event to aid in async loading of styles
+        if (current.TYPE === "style") {
+          $(imported).on("load", $helper.notify.bind($helper, current.HOOK));
+        } else {
+          $helper.notify(current.HOOK);
+        }
         continue;
       }
 
