@@ -434,7 +434,7 @@
      * <br />
      * The key for the <code>ARTICLES</code> array entries is as follows:
      * <pre>
-     * - DEV: The name of the script's property in <code>window.dev</code>
+     * - DEV/WINDOW: The name and location of the <code>window</code> property
      * - HOOK: The name of the <code>mw.hook</code> event
      * - ARTICLE: The location of the script or stylesheet on the Dev wiki
      * - TYPE: Either "script" for JS scripts or "style" for CSS stylesheets
@@ -458,13 +458,6 @@
             MODULE: "local.massEdit.I18n-js",
           }),
           Object.freeze({
-            DEV: "placement",
-            HOOK: "dev.placement",
-            ARTICLE: "u:dev:MediaWiki:Placement.js",
-            TYPE: "script",
-            MODULE: "local.massEdit.Placement",
-          }),
-          Object.freeze({
             DEV: "modal",
             HOOK: "dev.modal",
             ARTICLE: "u:dev:MediaWiki:Modal.js",
@@ -472,7 +465,14 @@
             MODULE: "local.massEdit.Modal",
           }),
           Object.freeze({
-            DEV: null,
+            DEV: "placement",
+            HOOK: "dev.placement",
+            ARTICLE: "u:dev:MediaWiki:Placement.js",
+            TYPE: "script",
+            MODULE: "local.massEdit.Placement",
+          }),
+          Object.freeze({
+            WINDOW: "wgMessageWallsExist",
             HOOK: "dev.enablewallext",
             ARTICLE: "u:dev:MediaWiki:WgMessageWallsExist.js",
             TYPE: "script",
@@ -3656,77 +3656,95 @@
   init.load = function (paramDeferred) {
 
     // Declarations
-    var i, n, articles, counter, current, server, params, resource, args,
-      $helper, imported;
+    var debug, articles, counter, numArticles, $loadNext, current, isLoaded,
+      article, server, params, resource, args;
 
     // Definitions
+    debug = false;
+    counter = 0;
     articles = this.Dependencies.ARTICLES;
-    counter = articles.length;
-    $helper = new $.Deferred();
-
-    /**
-     * @description The utility <code>$.Deferred</code> instance named
-     * <code>$helper</code> is intermittently notified by its enclosing function
-     * whenever a script or stylesheet has been successfully imported. In such
-     * cases, the <code>progress</code> handler determines if a
-     * <code>mw.hook</code> event listener/handler needs to be added to ensure
-     * that the dependencies has loaded in its entirety to a useable state. In
-     * either case, <code>paramDeferred</code> is eventually notified to check
-     * if all dependencies have been loaded.
-     */
-    $helper.progress(function (paramHook) {
-      if (paramHook != null) {
-        mw.hook(paramHook).add(paramDeferred.notify);
-      } else {
-        paramDeferred.notify();
-      }
-    }.bind(this));
+    numArticles = articles.length;
+    $loadNext = new $.Deferred();
 
     /**
      * @description The passed <code>$.Deferred</code> argument instance called
      * <code>paramDeferred</code> is variously notified during the loading of
-     * dependencies by the <code>$helper</code> promise whenever a dependency
+     * dependencies by the <code>$loadNext</code> promise whenever a dependency
      * has been successfully imported by <code>window.importArticles</code> or
      * <code>mw.loader.using</code>. The <code>progress</code> handler checks if
      * all dependencies have been successfully loaded for use before loading the
      * latest version of cached <code>i18n</code> messages and resolving itself
      * to pass program execution on to <code>init.main</code>.
      */
-    paramDeferred.progress(function () {
-      if (--counter === 0) {
-        $helper.resolve();
+    paramDeferred.notify().progress(function () {
+      if (counter === numArticles) {
+        // Resolve helper $.Deferred instance
+        $loadNext.resolve();
+        if (debug) {
+          console.log("$loadNext", $loadNext.state());
+        }
 
-        // Loaded most recent cached i18n messages
+        // Load latest version of cached i18n messages
         window.dev.i18n.loadMessages(this.Utility.SCRIPT, {
           cacheVersion: this.Utility.CACHE_VERSION,
         }).then(paramDeferred.resolve);
+      } else {
+        if (debug) {
+          console.log((counter + 1) + "/" + numArticles);
+        }
+
+        // Load next
+        $loadNext.notify(counter++);
       }
     }.bind(this));
 
-    // Iterate through Dev dependencies and load based on UCP status of wiki
-    for (i = 0, n = articles.length; i < n; i++) {
-      current = articles[i];
+    /**
+    * @description The <code>$loadNext</code> helper <code>$.Deferred</code>
+    * instance is used to load each dependency using methods appropriate to the
+    * version of MediaWiki detected on the wiki. While the standard
+    * <code>importArticle</code> method is used for legacy 1.19 wikis, a local
+    * ResourceLoader module is defined via <code>mw.loader.implement</code> and
+    * loaded via <code>mw.loader.using</code> to sidestep the fact that the
+    * <code>mw.loader.load</code> method traditionally used to load dependencies
+    * has no callback or promise. Once all imports are loaded, the handler
+    * applies a callback to any extant <code>mw.hook</code> events and notifies
+    * the main <code>paramDeferred.progress</code> handler to check if all
+    * dependencies have been loaded.
+    */
+    $loadNext.progress(function (paramCounter) {
 
-      // Skip loading of loaded dependencies and set hook if applicable
-      if (current.DEV != null && window.dev.hasOwnProperty(current.DEV)) {
-        $helper.notify(current.HOOK);
-        continue;
+      // Selected dependency to load next
+      current = articles[paramCounter];
+
+      // If window has property related to dependency indicating load status
+      isLoaded =
+        (current.DEV && window.dev.hasOwnProperty(current.DEV)) ||
+        (current.WINDOW && window.hasOwnProperty(current.WINDOW));
+
+      // Add hook if loaded; dependencies w/o hooks must always be loaded
+      if (isLoaded && current.HOOK) {
+        if (debug) {
+          console.log("isLoaded", current.ARTICLE);
+        }
+        return mw.hook(current.HOOK).add(paramDeferred.notify);
       }
 
       // Use standard importArticle approach if legacy wiki
       if (!this.info.isUCP) {
-        imported = window.importArticle({
+        article = window.importArticle({
           type: current.TYPE,
           article: current.ARTICLE,
         });
 
-        // Use jQuery "load" event to aid in async loading of styles
-        if (current.TYPE === "style") {
-          $(imported).on("load", $helper.notify.bind($helper, current.HOOK));
-        } else {
-          $helper.notify(current.HOOK);
+        // Log for local debugging (problem spot)
+        if (debug) {
+          console.log("importArticle", article);
         }
-        continue;
+
+        // Styles won't have hooks; notify status with load event if styles
+        return (current.HOOK)
+          ? mw.hook(current.HOOK).add(paramDeferred.notify)
+          : $(article).on("load", paramDeferred.notify);
       }
 
       // Build url with REST params
@@ -3749,9 +3767,11 @@
 
       // Load script/stylesheet once temporary module has been defined
       mw.loader.using(current.MODULE)
-        .then($helper.notify.bind($helper, current.HOOK))
+        .then((current.HOOK)
+          ? mw.hook(current.HOOK).add(paramDeferred.notify)
+          : paramDeferred.notify)
         .fail(paramDeferred.reject);
-    }
+    }.bind(this));
   };
 
   /**
