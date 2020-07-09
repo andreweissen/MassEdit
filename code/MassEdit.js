@@ -3687,7 +3687,7 @@
         // Load latest version of cached i18n messages
         window.dev.i18n.loadMessages(this.Utility.SCRIPT, {
           cacheVersion: this.Utility.CACHE_VERSION,
-        }).then(paramDeferred.resolve);
+        }).then(paramDeferred.resolve).fail(paramDeferred.reject);
       } else {
         if (debug) {
           console.log((counter + 1) + "/" + numArticles);
