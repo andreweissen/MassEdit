@@ -3681,7 +3681,7 @@
         // Resolve helper $.Deferred instance
         $loadNext.resolve();
         if (debug) {
-          console.log("$loadNext", $loadNext.state());
+          window.console.log("$loadNext", $loadNext.state());
         }
 
         // Load latest version of cached i18n messages
@@ -3690,7 +3690,7 @@
         }).then(paramDeferred.resolve).fail(paramDeferred.reject);
       } else {
         if (debug) {
-          console.log((counter + 1) + "/" + numArticles);
+          window.console.log((counter + 1) + "/" + numArticles);
         }
 
         // Load next
@@ -3724,7 +3724,7 @@
       // Add hook if loaded; dependencies w/o hooks must always be loaded
       if (isLoaded && current.HOOK) {
         if (debug) {
-          console.log("isLoaded", current.ARTICLE);
+          window.console.log("isLoaded", current.ARTICLE);
         }
         return mw.hook(current.HOOK).add(paramDeferred.notify);
       }
@@ -3738,7 +3738,7 @@
 
         // Log for local debugging (problem spot)
         if (debug) {
-          console.log("importArticle", article);
+          window.console.log("importArticle", article);
         }
 
         // Styles won't have hooks; notify status with load event if styles
