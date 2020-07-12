@@ -3657,7 +3657,7 @@
 
     // Declarations
     var debug, articles, counter, numArticles, $loadNext, current, isLoaded,
-      article, server, params, resource, args;
+      article, server, params, resource;
 
     // Definitions
     debug = false;
@@ -3754,16 +3754,14 @@
         only: current.TYPE + "s",
         articles: current.ARTICLE,
       });
-
-      // mw.loader.implement default definitions
-      resource = [server + this.globals.wgLoadScript + params];
-      args = [resource, null]; // Order for mw.loader.implement if script
+      resource = server + this.globals.wgLoadScript + params;
 
       // Define temp local modules to sidestep mw.loader.load's lack of callback
-      mw.loader.implement.apply(mw.loader, $.merge([current.MODULE],
+      mw.loader.implement.apply(null, $.merge([current.MODULE],
         (current.TYPE === "script")
-          ? $.merge([], args)               // module, script, null
-          : $.merge([], args).reverse()));  // module, null, style
+          ? [[resource]]
+          : [null, {"url": {"all": [resource]}}]
+      ));
 
       // Load script/stylesheet once temporary module has been defined
       mw.loader.using(current.MODULE)
