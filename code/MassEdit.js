@@ -3421,7 +3421,7 @@
    *
    * @param {string} paramType - Either "script" or "style"
    * @param {string} paramPage - Article formatted as "u:dev:MediaWiki:Test.js"
-   * @returns {string} - A ResourceLoader module name formatted as "dev.Test"
+   * @returns {string} - ResourceLoader module name formatted "script.dev.Test"
    */
   init.generateModuleName = function (paramType, paramPage) {
     return $.merge([paramType], paramPage.split(/[\/.]+/)[0].split(":").filter(
