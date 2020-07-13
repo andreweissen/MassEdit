@@ -455,28 +455,24 @@
             HOOK: "dev.i18n",
             ARTICLE: "u:dev:MediaWiki:I18n-js/code.js",
             TYPE: "script",
-            MODULE: "local.massEdit.I18n-js",
           }),
           Object.freeze({
             DEV: "modal",
             HOOK: "dev.modal",
             ARTICLE: "u:dev:MediaWiki:Modal.js",
             TYPE: "script",
-            MODULE: "local.massEdit.Modal",
           }),
           Object.freeze({
             DEV: "placement",
             HOOK: "dev.placement",
             ARTICLE: "u:dev:MediaWiki:Placement.js",
             TYPE: "script",
-            MODULE: "local.massEdit.Placement",
           }),
           Object.freeze({
             WINDOW: "wgMessageWallsExist",
             HOOK: "dev.enablewallext",
             ARTICLE: "u:dev:MediaWiki:WgMessageWallsExist.js",
             TYPE: "script",
-            MODULE: "local.massEdit.WgMessageWallsExist",
           }),
         ]),
         MODULES: Object.freeze([
@@ -3413,6 +3409,29 @@
   /****************************************************************************/
 
   /**
+   * @description This helper function is used to automatically generate an
+   * appropriate contrived ResourceLoader module name for use in loading scripts
+   * via <code>mw.loader.implement</code> on UCP wikis. The use of this function
+   * replaces the previous approach that saw the inclusion of hardcoded module
+   * names as properties of the relevant dependency <code>object</code>s stored
+   * in <code>init.Dependencies.ARTICLES</code>. When passed an argument
+   * formatted as <code>u:dev:MediaWiki:Test/code.js</code>, the function will
+   * extract the subdomain name ("dev") and join it to the name of the script
+   * ("Test") with the article type ("script") as <code>script.dev.Test</code>.
+   *
+   * @param {string} paramType - Either "script" or "style"
+   * @param {string} paramPage - Article formatted as "u:dev:MediaWiki:Test.js"
+   * @returns {string} - A ResourceLoader module name formatted as "dev.Test"
+   */
+  init.generateModuleName = function (paramType, paramPage) {
+    return $.merge([paramType], paramPage.split(/[\/.]+/)[0].split(":").filter(
+      function (paramItem) {
+        return !paramItem.match(/^u$|^mediawiki$/gi);
+      }
+    )).join(".");
+  };
+
+  /**
    * @description The first of two user input validators, this function is used
    * to ensure that the user's included config details related to Placement.js
    * are wellformed and legitimate. MassEdit.js offers support for all of
@@ -3657,7 +3676,7 @@
 
     // Declarations
     var debug, articles, counter, numArticles, $loadNext, current, isLoaded,
-      article, server, params, resource;
+      article, server, params, resource, moduleName;
 
     // Definitions
     debug = false;
@@ -3755,16 +3774,28 @@
         articles: current.ARTICLE,
       });
       resource = server + this.globals.wgLoadScript + params;
+      moduleName = this.generateModuleName(current.TYPE, current.ARTICLE);
+
+      // Ensure wellformed module name
+      if (debug) {
+        window.console.log(moduleName);
+      }
 
       // Define temp local modules to sidestep mw.loader.load's lack of callback
-      mw.loader.implement.apply(null, $.merge([current.MODULE],
-        (current.TYPE === "script")
-          ? [[resource]]
-          : [null, {"url": {"all": [resource]}}]
-      ));
+      try {
+        mw.loader.implement.apply(null, $.merge([moduleName],
+          (current.TYPE === "script")
+            ? [[resource]]
+            : [null, {"url": {"all": [resource]}}]
+        ));
+      } catch (paramError) {
+        if (debug) {
+          window.console.error(paramError);
+        }
+      }
 
       // Load script/stylesheet once temporary module has been defined
-      mw.loader.using(current.MODULE)
+      mw.loader.using(moduleName)
         .then((current.HOOK)
           ? mw.hook(current.HOOK).add(paramDeferred.notify)
           : paramDeferred.notify)
