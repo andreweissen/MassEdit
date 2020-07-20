@@ -438,7 +438,6 @@
      * - HOOK: The name of the <code>mw.hook</code> event
      * - ARTICLE: The location of the script or stylesheet on the Dev wiki
      * - TYPE: Either "script" for JS scripts or "style" for CSS stylesheets
-     * - MODULE: Name of the temporary ResourceLoader module used to async load
      * </pre>
      *
      * @readonly
