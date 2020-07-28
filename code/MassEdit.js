@@ -202,6 +202,7 @@
           "bot-global",
           "staff",
           "vstf",
+          "soap",
           "helper",
           "vanguard",
           "wiki-manager",
