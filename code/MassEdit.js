@@ -2420,8 +2420,8 @@
     }
 
     // Declarations
-    var i, n, $scene, isMessaging, shouldDisable, buttons, button, $fieldset,
-      isAll, defaultDisable;
+    var i, n, $scene, isMessaging, buttons, button, $fieldset, isAll,
+      defaultDisable;
 
     // Definitions
     $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
