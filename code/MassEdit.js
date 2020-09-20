@@ -377,6 +377,7 @@
      * - ID: Name of <code>Selectors</code> key related to element id
      * - CLASSES: Array of <code>Selectors</code> keys for class selectors
      * </pre>
+     *
      * @readonly
      * @enum {object}
      */
