@@ -354,6 +354,113 @@
     },
 
     /**
+     * @description The <code>Buttons</code> pseudo-enum stores all seven config
+     * <code>object</code>s used to assemble <code>ModalButton</code> instances
+     * during the Modal creation process. Prior to UCP update 3, this data was
+     * stored in a static fashion within <code>main.buildModal</code>. However,
+     * due to the need to maintain a static default <code>disabled</code> flag
+     * for use in toggling buttons elements within the body of
+     * <code>main.toggleModalComponentsDisable</code>, the associated config
+     * objects were removed from the <code>buildModal</code> method and provided
+     * their own dedicated pseudo-enum. The modal builder function now uses this
+     * data to dynamically assemble the buttons and modal in an automatic
+     * fashion.
+     * <br />
+     * <br />
+     * The key for each <code>Buttons</code> object entry is as follows:
+     * <pre>
+     * - HANDLER: Click handler function, a property of MassEdit instance
+     * - TEXT: <code>i18n</code> message name for button text
+     * - EVENT: Name of related click event (should be same as object key name)
+     * - PRIMARY: <code>boolean</code> flag for primary styling
+     * - DISABLED: <code>boolean</code> flag for default disabled behavior
+     * - ID: Name of <code>Selectors</code> key related to element id
+     * - CLASSES: Array of <code>Selectors</code> keys for class selectors
+     * </pre>
+     * @readonly
+     * @enum {object}
+     */
+    Buttons: {
+      enumerable: true,
+      writable: false,
+      configurable: false,
+      value: Object.freeze({
+        SUBMIT: Object.freeze({
+          HANDLER: "handleSubmit",
+          TEXT: "buttonSubmit",
+          EVENT: "submit",
+          PRIMARY: true,
+          DISABLED: false,
+          ID: "ID_MODAL_SUBMIT",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+            "CLASS_MODAL_OPTION",
+          ])
+        }),
+        TOGGLE: Object.freeze({
+          HANDLER: "handleToggle",
+          TEXT: "buttonPause",
+          EVENT: "toggle",
+          PRIMARY: true,
+          DISABLED: true,
+          ID: "ID_MODAL_TOGGLE",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+            "CLASS_MODAL_TIMER",
+          ])
+        }),
+        CANCEL: Object.freeze({
+          HANDLER: "handleCancel",
+          TEXT: "buttonCancel",
+          EVENT: "cancel",
+          PRIMARY: true,
+          DISABLED: true,
+          ID: "ID_MODAL_CANCEL",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+            "CLASS_MODAL_TIMER",
+          ])
+        }),
+        PREVIEW: Object.freeze({
+          HANDLER: "handlePreviewing",
+          TEXT: "buttonPreview",
+          EVENT: "preview",
+          PRIMARY: true,
+          DISABLED: true,
+          ID: "ID_MODAL_PREVIEW",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+          ])
+        }),
+        CLOSE: Object.freeze({
+          TEXT: "buttonClose",
+          EVENT: "close",
+          PRIMARY: false,
+          DISABLED: false,
+          ID: "ID_MODAL_CLOSE",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+            "CLASS_MODAL_LEFT",
+            "CLASS_MODAL_OPTION"
+          ])
+        }),
+        CLEAR: Object.freeze({
+          HANDLER: "handleClear",
+          TEXT: "buttonClear",
+          EVENT: "clear",
+          PRIMARY: false,
+          DISABLED: false,
+          ID: "ID_MODAL_CLEAR",
+          CLASSES: Object.freeze([
+            "CLASS_MODAL_BUTTON",
+            "CLASS_MODAL_LEFT",
+            "CLASS_MODAL_OPTION"
+          ])
+        }),
+      }),
+    },
+
+    /**
      * @description This pseudo-enum replaces the previous pair of
      * <code>boolean</code> constants housed in the script-global execution
      * context, namely <code>DEBUG</code> and <code>TESTING</code>. This enum
@@ -2281,48 +2388,61 @@
    * <code>paramDisable</code> flag and the initial baseline via of the button
    * specified in <code>button.disabled</code>. The preview button remains
    * disabled unless the scene is the messaging scene as before.
+   * <br />
+   * <br />
+   * As of UCP update 3, a few minor changes were made to this method, most
+   * notable of which was the removal of an "all" + "true" option, in which all
+   * button may be simultaneously enabled. This behavior should never manifest,
+   * so in all "all" cases, the buttons will now bulk-disable for use in scene
+   * transition. Also, given the removal of <code>ModalButton</code> config data
+   * to a separate pseudo-enum, the use of a static default <code>boolean</code>
+   * for disabled status now allows for better XOR comparisons in "partial"
+   * use cases.
    *
    * @param {string} paramOption - Either "all" or "partial"
    * @param {boolean} paramDisable - Whether to disable the select elements
    * @returns {void}
    */
   main.toggleModalComponentsDisable = function (paramOption, paramDisable) {
-    if (
-      $.inArray(paramOption, ["all", "partial"]) === -1 ||
-      typeof paramDisable !== "boolean"
-    ) {
+    if ($.inArray(paramOption, ["all", "partial"]) === -1) {
       return;
     }
 
+    // Sanitize boolean argument; "all"s should always bulk-disable
+    paramDisable =
+      (paramOption === "all" || typeof paramDisable !== "boolean") ||
+      paramDisable;
+
+    // Debug sanitized input
     if (this.flags.debug) {
       window.console.log(paramOption, paramDisable);
     }
 
     // Declarations
-    var i, n, $scene, isMessaging, shouldDisable, buttons, button, $fieldset;
+    var i, n, $scene, isMessaging, shouldDisable, buttons, button, $fieldset,
+      isAll, defaultDisable;
 
     // Definitions
     $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
     $fieldset = $("#" + this.Selectors.ID_CONTENT_FIELDSET);
     isMessaging = ($scene.value === "message" && $scene.selectedIndex === 2);
+    isAll = paramOption === "all";
     buttons = this.modal.modal.buttons;
 
     // Use each button's disabled prop as default baseline to compare against
     for (i = 0, n = buttons.length; i < n; i++) {
       button = buttons[i];
+      defaultDisable = this.Buttons[button.event.toUpperCase()].DISABLED;
 
-      // Use XOR to determine the need to switch b/w editing and non-editing UIs
-      shouldDisable = (button.event === "preview")
+      // Disabled if "all" or if behavior is expected for "partial"
+      button.setDisabled(isAll || (button.event === "preview")
         ? (!isMessaging || paramDisable)
-        : (paramOption === "partial")
-          ? Boolean(paramDisable ^ button.disabled)
-          : paramDisable;
-
-      $("#" + button.id).attr("disabled", shouldDisable);
+        : Boolean(paramDisable ^ defaultDisable)); // Toggle mechanism
+      $("#" + button.id).attr("disabled", button.disabled);
     }
 
     // Fieldset is disabled independently of buttons
-    $fieldset.attr("disabled", paramDisable);
+    $fieldset.attr("disabled", isAll || paramDisable);
   };
 
   // Preview methods
@@ -2663,87 +2783,52 @@
    * CSS styling prior to creation of the modal, though for the purposes of
    * ensuring single responsibility for all functions, the styling was moved
    * into a separate function, namely <code>injectModalStyles</code>.
+   * <br />
+   * <br />
+   * As of UCP update 3, this method has been refactored significantly. All
+   * <code>ModalButton</code> config objects have been moved to a dedicated
+   * <code>main</code> pseudo-enum, <code>Buttons</code>, leaving this function
+   * to handle the automatic generation of buttons and associated click events
+   * on a dynamic basis. This replaces the previous approach, in which the new
+   * <code>Modal</code> instance was created from static data stored within the
+   * function itself.
    *
    * @returns {object} - A new <code>Modal</code> instance
    */
   main.buildModal = function () {
-    return new window.dev.modal.Modal({
+
+    // Declaration
+    var modal;
+
+    // Base Modal config object definition
+    modal = {
       content: this.buildModalScene(this.Scenes[this.Utility.FIRST_SCENE].NAME),
       id: this.Selectors.ID_MODAL_CONTAINER,
       size: this.info.isUCP ? "large" : "medium",
       title: this.i18n.msg("buttonScript").escape(),
-      events: {
-        submit: this.handleSubmit.bind(this),
-        toggle: this.handleToggle.bind(this),
-        preview: this.handlePreviewing.bind(this),
-        clear: this.handleClear.bind(this),
-        cancel: this.handleCancel.bind(this),
-      },
-      buttons: [
-        {
-          text: this.i18n.msg("buttonSubmit").escape(),
-          event: "submit",
-          primary: true,
-          id: this.Selectors.ID_MODAL_SUBMIT,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-            this.Selectors.CLASS_MODAL_OPTION,
-          ],
-        },
-        {
-          text: this.i18n.msg("buttonPause").escape(),
-          event: "toggle",
-          primary: true,
-          disabled: true,
-          id: this.Selectors.ID_MODAL_TOGGLE,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-            this.Selectors.CLASS_MODAL_TIMER,
-          ],
-        },
-        {
-          text: this.i18n.msg("buttonCancel").escape(),
-          event: "cancel",
-          primary: true,
-          disabled: true,
-          id: this.Selectors.ID_MODAL_CANCEL,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-            this.Selectors.CLASS_MODAL_TIMER,
-          ],
-        },
-        {
-          text: this.i18n.msg("buttonPreview").escape(),
-          event: "preview",
-          primary: true,
-          disabled: true,
-          id: this.Selectors.ID_MODAL_PREVIEW,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-          ],
-        },
-        {
-          text: this.i18n.msg("buttonClose").escape(),
-          event: "close",
-          id: this.Selectors.ID_MODAL_CLOSE,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-            this.Selectors.CLASS_MODAL_LEFT,
-            this.Selectors.CLASS_MODAL_OPTION,
-          ],
-        },
-        {
-          text: this.i18n.msg("buttonClear").escape(),
-          event: "clear",
-          id: this.Selectors.ID_MODAL_CLEAR,
-          classes: [
-            this.Selectors.CLASS_MODAL_BUTTON,
-            this.Selectors.CLASS_MODAL_LEFT,
-            this.Selectors.CLASS_MODAL_OPTION,
-          ],
-        },
-      ],
-    });
+    };
+
+    // Auto-generate button config objects from Buttons pseudo-enum
+    modal.buttons = Object.values(this.Buttons).map(function (paramButton) {
+      if (paramButton.hasOwnProperty("HANDLER")) {
+        (modal.events = modal.events || {})[paramButton.EVENT] =
+          this[paramButton.HANDLER].bind(this);
+      }
+
+      return {
+        text: this.i18n.msg(paramButton.TEXT).escape(),
+        event: paramButton.EVENT,
+        primary: paramButton.PRIMARY && !this.info.isUCP,
+        //disabled: paramButton.DISABLED,
+        id: this.Selectors[paramButton.ID],
+        classes: paramButton.CLASSES.map(function (paramClass) {
+          return this.Selectors[paramClass];
+        }.bind(this)),
+      };
+    }.bind(this));
+
+    // Return new Modal instance
+    return new window.dev.modal.Modal(modal);
   };
 
   /**
@@ -3551,7 +3636,7 @@
         ][+isTransitioning];
 
     // Disable/hide all modal buttons for duration of fade and reset
-    this.toggleModalComponentsDisable("all", true);
+    this.toggleModalComponentsDisable("all");
 
     // Fade out on modal and reset content before fade-in
     $("#" + this.Selectors.ID_MODAL_CONTAINER + modalBodyTarget)
