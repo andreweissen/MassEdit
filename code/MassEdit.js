@@ -2392,8 +2392,8 @@
    * <br />
    * <br />
    * As of UCP update 3, a few minor changes were made to this method, most
-   * notable of which was the removal of an "all" + "true" option, in which all
-   * button may be simultaneously enabled. This behavior should never manifest,
+   * notable of which was the removal of an "all" + "false" option, in which all
+   * buttons may be simultaneously enabled. This behavior should never manifest,
    * so in all "all" cases, the buttons will now bulk-disable for use in scene
    * transition. Also, given the removal of <code>ModalButton</code> config data
    * to a separate pseudo-enum, the use of a static default <code>boolean</code>
