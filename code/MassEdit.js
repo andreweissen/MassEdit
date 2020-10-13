@@ -4014,7 +4014,23 @@
      * latest version of cached <code>i18n</code> messages and resolving itself
      * to pass program execution on to <code>init.main</code>.
      */
-    paramDeferred.notify().progress(function () {
+    paramDeferred.notify().progress(function (paramResponse) {
+
+      // Examine returned contents from mw.hooks
+      if (paramResponse != null) {
+        // Wrap in Promise to gracefully handle WgMessageWallsExist rejections
+        Promise.resolve(paramResponse).then(function (paramResponse) {
+          if (debug) {
+            window.console.log("paramResponse, mw.hook", paramResponse);
+          }
+        }).catch(function (paramError) {
+          if (debug) {
+            window.console.warn("paramError, mw.hook", paramError);
+          }
+        });
+      }
+
+      // Check if loading is complete
       if (counter === numArticles) {
         // Resolve helper $.Deferred instance
         $loadNext.resolve();
