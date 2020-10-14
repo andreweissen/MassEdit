@@ -4019,11 +4019,11 @@
       // Examine returned contents from mw.hooks
       if (paramResponse != null) {
         // Wrap in Promise to gracefully handle WgMessageWallsExist rejections
-        Promise.resolve(paramResponse).then(function (paramResponse) {
+        window.Promise.resolve(paramResponse).then(function (paramResponse) {
           if (debug) {
             window.console.log("paramResponse, mw.hook", paramResponse);
           }
-        }).catch(function (paramError) {
+        }, function (paramError) {
           if (debug) {
             window.console.warn("paramError, mw.hook", paramError);
           }
