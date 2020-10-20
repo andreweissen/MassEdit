@@ -1487,6 +1487,7 @@
         action: "query",
         prop: "info|revisions",
         titles: paramPage,
+        inprop: "protection",
         rvprop: "content|timestamp",
         //rvslots: "*",
         rvlimit: "1",
@@ -3155,9 +3156,9 @@
           $getNextPage.resolve();
           $postPages.resolve("logSuccessEditingComplete");
         } else {
-          $getPageContent = (!isReplace)
-            ? new $.Deferred().resolve({}).promise()
-            : this.getPageContent(pages[counter]);
+          $getPageContent = (isReplace || isAddition)
+            ? this.getPageContent(pages[counter])
+            : new $.Deferred().resolve({}).promise();
 
           // Grab data, extend parameters, then edit the page
           $getPageContent.always($postPages.notify);
@@ -3208,24 +3209,8 @@
         window.console.log("$postPages results: ", paramResults);
       }
 
-      // Addition parameters
-      if (isAddition) {
-        config = {
-          handler: "postPageContent",
-          parameters: {
-            title: pages[counter],
-            token: mw.user.tokens.get("editToken"),
-            summary: $summary,
-          }
-        };
-
-        if (!this.flags.testing) {
-          // "appendtext" or "prependtext"
-          config.parameters[$action.value.toLowerCase() + "text"] = $content;
-        }
-
-      // Find-and-replace parameters
-      } else if (isReplace) {
+      // Reduce some code repetition via consolidation of shared code
+      if (isAddition || isReplace) {
 
         // Make sure returned results have a "query" property
         if (
@@ -3236,8 +3221,41 @@
           return this.timer.iterate();
         }
 
+        // Default config parameters
+        config = {
+          handler: "postPageContent",
+          parameters: {
+            title: pages[counter],
+            token: mw.user.tokens.get("editToken"),
+            summary: $summary,
+          }
+        };
+
+        // Definitions
         pageIndex = Object.keys(paramResults.query.pages)[0];
         data = paramResults.query.pages[pageIndex];
+
+        // Only add undoc'ed param if commenting is enabled
+        if (
+          this.info.isUCP &&
+          $.inArray("comment", data.protection.map(function (paramProtection) {
+            return paramProtection.type;
+          })) === -1
+        ) {
+          config.parameters.wpIsCommentingEnabled = null;
+        }
+      }
+
+      // Addition-specific parameters
+      if (isAddition) {
+
+        // "appendtext" or "prependtext"
+        if (!this.flags.testing) {
+          config.parameters[$action.value.toLowerCase() + "text"] = $content;
+        }
+
+      // Find-and-replace parameters
+      } else if (isReplace) {
 
         // Shim to handle ArticleComments that do not have revision history
         if (
@@ -3254,15 +3272,8 @@
           return this.timer.iterate();
         }
 
-        config = {
-          handler: "postPageContent",
-          parameters: {
-            title: pages[counter],
-            text: data.revisions[0]["*"],
-            token: mw.user.tokens.get("editToken"),
-            summary: $summary,
-          }
-        };
+        // isReplace-specific parameter
+        config.parameters.text = data.revisions[0]["*"];
 
         // Replace instances of chosen text with inputted new text
         newText = replaceOccurrences(config.parameters.text);
