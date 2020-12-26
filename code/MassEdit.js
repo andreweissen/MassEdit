@@ -3236,6 +3236,7 @@
         data = paramResults.query.pages[pageIndex];
 
         // Only add undoc'ed param if commenting is enabled
+        /*
         if (
           this.info.isUCP &&
           $.inArray("comment", data.protection.map(function (paramProtection) {
@@ -3244,6 +3245,7 @@
         ) {
           config.parameters.wpIsCommentingEnabled = null;
         }
+        */
       }
 
       // Addition-specific parameters
