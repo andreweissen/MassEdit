@@ -1,4 +1,3 @@
-/* <syntaxhighlight lang="javascript"> */
 {
     "_metadata": {
         "noTranslate": [
@@ -2824,7 +2823,7 @@
         "logErrorNoPreview": "Lỗi: Không thể hiển thị xem trước tin nhắn.",
         "logErrorMissingByline": "Lỗi: Không có tiêu đề tin nhắn.",
         "logErrorMissingBody": "Lỗi: Không có nội dung tin nhắn.",
-        "logErrorOverlongSummary": "Lỗi: Tóm tắt sửa đổi vượt quá giới hạn ký tự (>255 ký tự).",
+        "logErrorOverlongSummary": "Lỗi: Tóm tắt sửa đổi vượt quá giới hạn ký tự (\u003E255 ký tự).",
         "logErrorRatelimited": "Lỗi: Chỉnh sửa $1 bị trì hoãn do bị giới hạn thời gian.",
         "logErrorSecurity": "Lỗi: Việc sử dụng một số ký tự bị cấm bởi wgLegalTitleChars.",
         "logErrorFailedFetch": "Lỗi: Không thể có được các trang thành viên của mục nhập $1.",
