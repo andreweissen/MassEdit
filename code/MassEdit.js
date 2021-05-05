@@ -2204,7 +2204,7 @@
       textfieldBackground: "#FFFFFF",
       textfieldColor: "#000000",
       modalBorder: (this.info.isUCP)
-        ? "var(--themed-border-color)"        // UCP has dedicated 2nd border
+        ? "var(--theme-border-color)"         // UCP has dedicated 2nd border
         : colors.parse(colors.wikia.border)   // Just use Colors' border styling
     };
 
