@@ -2160,7 +2160,7 @@
         "logStatusFetchingMembers": "Buscando páginas de membros de $1...",
         "logStatusFetchingTransclusions": "Buscando transclusões de $1......",
         "logErrorFailedFetch": "Erro: Incapaz de adquirir páginas de membro da entrada $1",
-        "logErrorNoWellformedPages": "Error: No valid pages to edit",
+        "logErrorNoWellformedPages": "Eror: Sem páginas válidas para editar",
         "noOptionSelected": "Erro: selecione uma ação antes de enviar",
         "logErrorNoTarget": "Erro: não foi especificado o conteúdo objetivo.",
         "logErrorNoPages": "Erro: não foi especificado o conteúdo das páginas.",
