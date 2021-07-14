@@ -2763,7 +2763,7 @@
         "modalPagesTitle": "Введіть сторінки",
         "modalSummaryTitle": "Опис редагування",
         "modalActionPrepend": "Вміст, доданий на сторінку(и)",
-        "modalActionAppend": "Додання вмісту на сторінку(и)",
+        "modalActionAppend": "Додавання вмісту на сторінку(и)",
         "modalSceneReplace": "Пошук і заміна контенту на сторінці(ах)",
         "modalTypePages": "Окремі сторінки",
         "modalTypeCategories": "Категорії",
@@ -2785,7 +2785,7 @@
         "modalIndicesPlaceholder": "Введіть \"1, 3\" для заміни першої та третьої екземпляру тощо.",
         "modalPagesPlaceholder": "Почніть нову назву з нового рядка",
         "modalSummaryPlaceholder": "Введіть опис редагування",
-        "modalLog": "Журнал MassEdit",
+        "modalLog": "Журнал масових редагувань",
         "logStatusEditing": "Завантаження…",
         "logStatusFetchingMembers": "Отримання сторінок для користувачів $1...",
         "logStatusFetchingTransclusions": "Отримання включень у розмірі $1......",
@@ -2831,7 +2831,7 @@
         "logErrorMissingBody": "Помилка: не включено текст повідомлення",
         "logErrorNoUserData": "Помилка: неможливо отримати дані користувача для користувача $1",
         "buttonScript": "MassEdit",
-        "buttonSubmit": "Подати"
+        "buttonSubmit": "Підтвердити"
     },
     "val": {
         "modalAction": "Seleccionar acció",
