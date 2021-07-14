@@ -77,7 +77,7 @@
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
         "logErrorOverlongSummary": "Error: Edit summary exceeds character limit",
-        "logErrorRatelimited": "Error: Editing delayed $1 seconds due to ratelimit",
+        "logErrorRatelimited": "Error: Editing delay $1 seconds due to rate limit",
         "logErrorSecurity": "Error: Use of some characters is prohibited by wgLegalTitleChars",
         "logErrorFailedFetch": "Error: Unable to acquire member pages of entry $1",
         "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
