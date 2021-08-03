@@ -2753,7 +2753,8 @@
         "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
     },
     "th": {
-        "buttonClear": "ล้าง"
+        "buttonClear": "ล้าง",
+        "buttonClose": "ปิด"
     },
     "tr": {
         "modalAction": "Eylem seç",
