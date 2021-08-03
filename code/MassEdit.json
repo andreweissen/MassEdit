@@ -2752,6 +2752,9 @@
         "logErrorMissingBody": "Error: No message body included",
         "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
     },
+    "th": {
+        "buttonClear": "ล้าง"
+    },
     "tr": {
         "modalAction": "Eylem seç",
         "modalType": "Tür seç",
