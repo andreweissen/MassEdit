@@ -212,7 +212,7 @@
           "soap",
           "helper",
           "vanguard",
-          "wiki-manager",
+          "wiki-representative",
           "content-team-member",
           "content-volunteer",
         ]),
