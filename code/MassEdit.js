@@ -213,7 +213,7 @@
           "helper",
           "vanguard",
           "wiki-representative",
-          "content-team-member",
+          "wiki-specialist",
           "content-volunteer",
         ]),
         CAN_MESSAGE: Object.freeze([
