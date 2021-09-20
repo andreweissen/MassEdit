@@ -2,6 +2,8 @@
 
 #### Overview ####
 
+__NOTE: This is a mirror of an application stored on the Dev wiki [here](https://dev.wikia.com/wiki/MassEdit).__
+
 [MassEdit](https://dev.wikia.com/wiki/MassEdit) is a task automation and bulk editing tool written in ES5-compliant JavaScript for use on wikis running on Wikia, Inc.'s MediaWiki 1.19 legacy platform and MediaWiki 1.33 [Unified Community Platform](https://community.fandom.com/wiki/Help:Unified_Community_Platform). Its development was inspired by a desire to make the bulk editing capabilities of dedicated bot software like [AutoWikiBrowser](https://github.com/reedy/AutoWikiBrowser) and [Pywikibot](https://github.com/wikimedia/pywikibot) and the in-editor capabilities of [FindAndReplace](https://dev.wikia.com/wiki/FindAndReplace) more readily available to the average contributor.
 
 Run as an in-browser application, MassEdit provides users with the ability to automate otherwise tedious editing and upkeep tasks. It can create a new set of pages/templates/categories, add or remove content from existing pages, categorize or recategorize pages in bulk, find-and-replace select content from pages at will, message users, or generate lists of member pages belonging to categories or namespaces. In addition to providing a listing of loose pages, users may also input the names of [categories](https://www.mediawiki.org/wiki/Help:Categories) or [namespaces](https://www.mediawiki.org/wiki/Help:Namespaces) to edit their respective member pages in bulk.
