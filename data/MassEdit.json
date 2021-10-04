@@ -80,7 +80,9 @@
         "logErrorRatelimited": "Error: Editing delay $1 seconds due to rate limit",
         "logErrorSecurity": "Error: Use of some characters is prohibited by wgLegalTitleChars",
         "logErrorFailedFetch": "Error: Unable to acquire member pages of entry $1",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "qqq": {
         "buttonScript": "Script name, used for tool button and modal header",
@@ -158,7 +160,9 @@
         "logErrorRatelimited": "Error message indicating that editing has been temporarily halted",
         "logErrorSecurity": "Error message indicating that some characters are not permitted",
         "logErrorFailedFetch": "Error message indicating that $1 member pages cannot be retrieved",
-        "logErrorNoUserData": "Error message indicating that user data cannot be acquired for user"
+        "logErrorNoUserData": "Error message indicating that user data cannot be acquired for user",
+        "logErrorNotAnEditor": "Error message indicating that user has never edited on the wiki",
+        "logErrorInactiveEditor": "Error message indicating that the user is not active on the wiki at the moment"
     },
     "ar": {
         "buttonScript": "MassEdit",
@@ -237,7 +241,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "be": {
         "modalAction": "Выберыце дзеянне",
@@ -315,7 +321,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "bg": {
         "buttonScript": "MassEdit",
@@ -394,7 +402,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "bs": {
         "buttonScript": "MassEdit",
@@ -473,7 +483,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ca": {
         "modalAction": "Selecciona una acció",
@@ -551,7 +563,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "de": {
         "modalAction": "Aktion auswählen",
@@ -630,7 +644,9 @@
         "logErrorMissingByline": "Fehler: Kein Benachrichtigungstitel angegeben",
         "logErrorMissingBody": "Fehler: Kein Benachrichtigungsinhalt angegeben",
         "logErrorNoUserData": "Fehler: Für den Benutzer $1 können keine Nutzerdaten gesammelt werden",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "el": {
         "buttonScript": "MassEdit",
@@ -708,7 +724,9 @@
         "logErrorRatelimited": "Σφάλμα: Η επεξεργασία καθηστέρησε $1 δευτερόλεπτα λόγο όριων περιορισμών",
         "logErrorSecurity": "Σφάλμα: Χρήση κάποιων χαρακτήρων απαγορεύεται από το wgLegalTitleChars",
         "logErrorFailedFetch": "Σφάλμα: Αδυναμία απόκτησης σελίδων μέλους του στοιχείου $1",
-        "logErrorNoUserData": "Σφάλμα: Αδυναμία απόκτησης δεδομένων χρήστη για τον χρήστη $1"
+        "logErrorNoUserData": "Σφάλμα: Αδυναμία απόκτησης δεδομένων χρήστη για τον χρήστη $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "eo": {
         "buttonScript": "MassEdit",
@@ -786,7 +804,9 @@
         "logErrorRatelimited": "Eraro: Redaktado estas haltigita por $1 sekundoj pro limigoj",
         "logErrorSecurity": "Eraro: Uzado de iuj el la simboloj estas malpermesita de wgLegalTitleChars",
         "logErrorFailedFetch": "Eraro: Anaj paĝoj de $1 ne akireblas",
-        "logErrorNoUserData": "Eraro: Datumoj de la uzanto $1 ne akireblas"
+        "logErrorNoUserData": "Eraro: Datumoj de la uzanto $1 ne akireblas",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "es": {
         "modalAction": "Seleccionar acción",
@@ -865,7 +885,9 @@
         "logErrorMissingByline": "Error: El título del mensaje no se incluye",
         "logErrorMissingBody": "Error: El cuerpo del mensaje no se incluye",
         "logErrorNoUserData": "Error: no se pueden adquirir datos para el usuario $1",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "fi": {
         "buttonScript": "MassEdit",
@@ -944,7 +966,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "fr": {
         "modalAction": "Sélectionner une action",
@@ -1023,7 +1047,9 @@
         "logErrorMissingByline": "Erreur: Titre du message manquant",
         "logErrorMissingBody": "Erreur: Corps du message manquant",
         "logErrorNoUserData": "Erreur: Impossible d'obtenir les données de l'utilisateur $1",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "fy": {
         "modalAction": "Select Action",
@@ -1101,7 +1127,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "gl": {
         "modalAction": "Seleccionar acción",
@@ -1179,7 +1207,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "hi": {
         "buttonScript": "MassEdit",
@@ -1257,7 +1287,9 @@
         "logErrorRatelimited": "त्रुटि: रेटलिमिट के चलते $1 सेकंड देर हो गई",
         "logErrorSecurity": "त्रुटि: wgLegalTitleChars द्वारा मना किए गए अक्षरों का इस्तेमाल हुआ है",
         "logErrorFailedFetch": "त्रुटि: एंट्री $1 के सदस्य पृष्ठों को न पाया जा सका",
-        "logErrorNoUserData": "त्रुटि: सदस्य $1 के लिए सदस्य डेटा न मिल पाया"
+        "logErrorNoUserData": "त्रुटि: सदस्य $1 के लिए सदस्य डेटा न मिल पाया",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "hr": {
         "buttonScript": "MassEdit",
@@ -1336,7 +1368,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "id": {
         "buttonScript": "MassEdit",
@@ -1414,7 +1448,9 @@
         "logErrorRatelimited": "Error: Editing delay $1 seconds due to rate limit",
         "logErrorSecurity": "Error: Use of some characters is prohibited by wgLegalTitleChars",
         "logErrorFailedFetch": "Error: Unable to acquire member pages of entry $1",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "it": {
         "modalAction": "Selezionare un'azione",
@@ -1492,7 +1528,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ja": {
         "buttonScript": "MassEdit",
@@ -1570,7 +1608,9 @@
         "logErrorRatelimited": "Error: Editing delay $1 seconds due to rate limit",
         "logErrorSecurity": "Error: Use of some characters is prohibited by wgLegalTitleChars",
         "logErrorFailedFetch": "Error: Unable to acquire member pages of entry $1",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ka": {
         "buttonScript": "MassEdit",
@@ -1649,7 +1689,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ko": {
         "buttonScript": "MassEdit",
@@ -1728,7 +1770,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "lv": {
         "buttonScript": "MassEdit",
@@ -1807,7 +1851,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "mk": {
         "buttonScript": "MassEdit",
@@ -1885,7 +1931,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "mo": {
         "modalAction": "Селекционязэ о акциуне",
@@ -1963,7 +2011,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "nl": {
         "modalAction": "Handeling selecteren",
@@ -2042,7 +2092,9 @@
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
         "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
-        "buttonSubmit": "Bevestigen"
+        "buttonSubmit": "Bevestigen",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "nrm": {
         "modalAction": "Chouési l'actioun",
@@ -2120,7 +2172,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "oc": {
         "modalAction": "Seleccionar una accion",
@@ -2198,7 +2252,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "pl": {
         "modalAction": "Wybierz akcję",
@@ -2277,7 +2333,9 @@
         "logErrorMissingByline": "Błąd: Nie dodano tytułu wiadomości",
         "logErrorMissingBody": "Błąd: Nie dodano treści wiadomości",
         "logErrorNoUserData": "Błąd: Nie udało się pozyskać informacji o użytkowniku $1",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "pt": {
         "modalAction": "Seleccionar acção",
@@ -2355,7 +2413,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "pt-br": {
         "modalAction": "Selecionar ação",
@@ -2434,7 +2494,9 @@
         "logErrorMissingByline": "Erro: nenhum título de mensagem incluído",
         "logErrorMissingBody": "Erro: nenhum corpo de mensagem incluído",
         "logErrorNoUserData": "Erro: não é possível adquirir dados do usuário para o usuário $1",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ro": {
         "modalAction": "Selecţionează o acţiune",
@@ -2512,7 +2574,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "ru": {
         "modalAction": "Выберите действие",
@@ -2592,7 +2656,9 @@
         "logErrorMissingBody": "Ошибка: Текст сообщения не включен",
         "logErrorNoUserData": "Ошибка: Невозможно получить данные пользователя для участника $1",
         "buttonSubmit": "Отправить",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "sr-ec": {
         "buttonScript": "MassEdit",
@@ -2671,7 +2737,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "sr-el": {
         "buttonScript": "MassEdit",
@@ -2750,7 +2818,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "th": {
         "buttonClear": "ล้าง",
@@ -2833,7 +2903,9 @@
         "logErrorMissingByline": "Hata: Mesaj başlığı girilmedi",
         "logErrorMissingBody": "Hata: Mesaj gövdesi girilmedi",
         "logErrorNoUserData": "Hata: $1 kullanıcısının kullanıcı verisi alınamadı",
-        "buttonScript": "MassEdit"
+        "buttonScript": "MassEdit",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "uk": {
         "modalAction": "Оберіть дію",
@@ -2913,7 +2985,9 @@
         "logErrorMissingBody": "Помилка: не включено текст повідомлення",
         "logErrorNoUserData": "Помилка: неможливо отримати дані користувача для користувача $1",
         "buttonScript": "MassEdit",
-        "buttonSubmit": "Підтвердити"
+        "buttonSubmit": "Підтвердити",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "val": {
         "modalAction": "Seleccionar acció",
@@ -2991,7 +3065,9 @@
         "logErrorNoPreview": "Error: Unable to render message preview",
         "logErrorMissingByline": "Error: No message title included",
         "logErrorMissingBody": "Error: No message body included",
-        "logErrorNoUserData": "Error: Unable to acquire user data for user $1"
+        "logErrorNoUserData": "Error: Unable to acquire user data for user $1",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "vi": {
         "buttonScript": "MassEdit",
@@ -3069,7 +3145,9 @@
         "logErrorRatelimited": "Lỗi: Chỉnh sửa $1 bị trì hoãn do bị giới hạn thời gian.",
         "logErrorSecurity": "Lỗi: Việc sử dụng một số ký tự bị cấm bởi wgLegalTitleChars.",
         "logErrorFailedFetch": "Lỗi: Không thể có được các trang thành viên của mục nhập $1.",
-        "logErrorNoUserData": "Lỗi: Không thể có được dữ liệu người dùng cho người dùng $1."
+        "logErrorNoUserData": "Lỗi: Không thể có được dữ liệu người dùng cho người dùng $1.",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "zh-hans": {
         "buttonScript": "批量编辑",
@@ -3147,7 +3225,9 @@
         "logErrorRatelimited": "错误：因为频率限制，编辑延迟$1秒。",
         "logErrorSecurity": "错误：wgLegalTitleChars禁止使用特殊字符。",
         "logErrorFailedFetch": "错误：无法获取条目$1的成员页面。",
-        "logErrorNoUserData": "错误：无法获取用户$1的用户数据。"
+        "logErrorNoUserData": "错误：无法获取用户$1的用户数据。",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     },
     "zh-hant": {
         "buttonScript": "批量編輯",
@@ -3225,6 +3305,8 @@
         "logErrorRatelimited": "错误：因为频率限制，编辑延迟$1秒。",
         "logErrorSecurity": "错误：wgLegalTitleChars禁止使用特殊字符。",
         "logErrorFailedFetch": "错误：无法获取条目$1的成员页面。",
-        "logErrorNoUserData": "错误：无法获取用户$1的用户数据。"
+        "logErrorNoUserData": "错误：无法获取用户$1的用户数据。",
+        "logErrorNotAnEditor": "Error: $1 has never edited on this wiki",
+        "logErrorInactiveEditor": "Error: $1 is not active on this wiki"
     }
 }
