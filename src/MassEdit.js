@@ -726,7 +726,7 @@
    * <code> %!"$&'()*,\-./0-9:;=?@A-Z\\\^_`a-z~+\u0080-\uFFFF</code>
    *
    * @param {string} paramString Content string to be checked
-   * @return {boolean} - Flag denoting the nature of the paramString
+   * @returns {boolean} - Flag denoting the nature of the paramString
    */
   main.isLegalInput = function (paramString) {
     return new RegExp("^[" + this.globals.wgLegalTitleChars +
@@ -867,7 +867,7 @@
    * for use in posting the Message Wall thread.
    *
    * @param {string} paramHTML - Parsed string HTML parsed from wikitext
-   * @return {string} - A jsonModel JSON object in string form
+   * @returns {string} - A jsonModel JSON object in string form
    */
   main.buildJsonModel = function (paramHTML) {
     return JSON.stringify(this.assembleJsonModelObject(
@@ -1759,7 +1759,7 @@
    * eventually include checks for users with edit counts of 0, indicating that
    * the user in question exists but does not contribute to the wiki in on
    * which the script is being used. In such cases, perhaps the username will be
-   * removed (implemented in update 3).
+   * removed (implemented in update 4).
    * <br />
    * <br />
    * As of UCP update 2, the mechanism by which usernames are checked to ensure
@@ -1771,7 +1771,7 @@
    * process and rendering the approach more efficient overall.
    * <br />
    * <br />
-   * As of the 4/10/2021 update (I guess we can call this UCP update 3?), the
+   * As of the 4/10/2021 update (I guess we can call this UCP update 4?), the
    * approach evidenced herein has reverted to a variation of that used prior to
    * update 2, in which each username is once again checked individually prior
    * to the parsing of the wikitext and posting of the message. This was
@@ -1872,7 +1872,7 @@
      * legitimate recipient. To ensure the script is not used for the purposes
      * of spam by users who create a new wiki on which they have messaging
      * permissions, a number of restrictions have been introduced in the
-     * 4/10/2021 update (UCP update 3) to ensure only active users who have
+     * 4/10/2021 update (UCP update 4) to ensure only active users who have
      * contributed recently are messaged.
      * <br />
      * <br />
@@ -4000,7 +4000,7 @@
    * @see <a href="https://git.io/fA4Jk">SUS-4775</a>
    * @see <a href="https://git.io/fA4eQ">VariablesBase.php</a>
    * @param {number} paramInterval - User's input interval value
-   * @return {number} - Adjusted interval
+   * @returns {number} - Adjusted interval
    */
   init.defineInterval = function (paramInterval) {
 
