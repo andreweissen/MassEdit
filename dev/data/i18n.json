@@ -1,0 +1,21 @@
+{
+  "en": {
+    "p_action": "Enter either \"pull\" or \"push\" for action",
+    "p_mwurl": "Enter url of Fandom MediaWiki file",
+    "p_local_path": "Enter path to target file in local repository",
+    "p_intro": "Enter Fandom user name and bot password",
+    "e_action": "Error: Action must be either \"pull\" or \"push\"",
+    "e_mwurl": "Error: URL domain does not belong to a valid Fandom wiki",
+    "e_local_path": "Error: Unable to open local file",
+    "e_login_api": "Error: Unable to login due to API issues",
+    "e_login": "Error: Unable to login",
+    "e_get_content": "Error: Unable to acquire page content",
+    "e_get_content_api": "Error: Unable to acquire page content due to API issues",
+    "e_write_to_file": "Error: Unable to write to local file",
+    "e_post_content": "Error: Unable to post content",
+    "e_post_content_api": "Error: Unable to post content due to API issues",
+    "s_login": "Success: Logged in via bot password",
+    "s_write_to_file": "Success: Content written to local file",
+    "s_post_content": "Success: Content successfully posted"
+  }
+}

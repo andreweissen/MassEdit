@@ -1,0 +1,15 @@
+{
+  "source": {
+    "include": ["src"],
+    "includePattern": ".js$",
+    "excludePattern": "(img|doc)"
+  },
+  "templates": {
+    "monospaceLinks": true
+  },
+  "opts": {
+    "recurse": true,
+    "destination": "./doc/",
+    "readme": "./README.md"
+  }
+}

@@ -1,0 +1,177 @@
+
+include>{{LangSelect}}</noinclude><includeonly>
+{{Languages}}
+{{Infobox JavaScript
+  | Image file  = MassEdit.png
+    | Description = Modal for adding or replacing content from pages, messaging
+    users, generating lists of member pages belonging to categories/namespaces,
+    or generating pages transcluding templates
+      | Status      = stable
+      | Scope       = ps
+      | Author      = [[User:Eizen|Eizen]]
+      | Code        = [[MediaWiki:MassEdit/code.js|code.js]]
+      | Updated = {{Updated|MediaWiki:MassEdit/code.js}}
+  | Languages   = auto
+    | Type        = editing, management
+ }}
+'''MassEdit''' is a task automation and bulk editing tool written in
+ES5-compliant JavaScript. Its development was inspired by a desire to make the
+bulk editing capabilities of dedicated bot software like [[w:User
+blog:RansomTime/An Introduction to AutoWikiBrowser|AutoWikiBrowser]] and
+[[w:User blog:RansomTime/An introduction to Pywikipediabot|Pywikibot]] and the
+in-editor capabilities of FindAndReplace more readily available to the average
+contributor.
+
+Run as an in-browser application, MassEdit provides users with the ability to
+automate otherwise tedious editing and upkeep tasks. It can create a new set of
+pages/templates/categories, add or remove content from existing pages,
+  categorize or recategorize pages in bulk, find-and-replace select content from
+  pages at will, message users, generate lists of member pages belonging to
+  categories or namespaces, or generate listings of pages transcluding certain
+  templates. In addition to providing a listing of loose pages, users may also
+  input the names of [[mw:Help:Categories|categories]] or
+  [[mw:Help:Namespaces|namespaces]] to edit their respective member pages in
+  bulk.
+
+  As of its most recent updates, the script employs a number of other external
+  dependencies similarly housed on Dev. In addition to those loaded by default
+  in MediaWiki, MassEdit makes use of [[Modal|Modal.js]],
+  [[Placement|Placement.js]], [[I18n-js]], [[Colors|Colors.js]], and
+  [[WgMessageWallsExist]] for the purposes of standardizing modal design and
+  providing more comprehensive [[wikipedia:Internationalization and
+  localization|i18n]] support. Due to the potential for abuse in the form of
+  vandalism or spam, the application can only be used by high-level local staff
+  (i.e. admins, moderators, and bots) and assorted global groups.
+
+  == Installation ==
+{{Script Install
+  | codepage = MassEdit/code.js
+ }}
+
+== Configuration ==
+Certain elements of the MassEdit script may be configured to its users' liking
+via the inclusion of a <code>window</code> variable named
+<code>window.MassEditConfig</code>. Though users are free to adjust the interval
+at which the script edits pages, rates faster than the limits imposed on users
+and bots will be adjusted to the internal maximum intervals of 1500 ms for users
+and 750 ms for bots. Users may also modify the default placement of the
+"MassEdit" button used to open the modal and begin use of the script. As this
+script supports all of [[Placement|Placement.js's]] approved element locations,
+       users may list any supported placement location as MassEdit's default
+       button location; see Placement's approved locations for details.
+
+       An example config object is displayed below:
+       <syntaxhighlight lang="JavaScript">
+       window.MassEditConfig = {
+           interval: 2500,
+                       placement: {
+                             element: "toolbar",
+                                          type: "append"
+                                              }
+       };
+</syntaxhighlight>
+
+{| width="100%" class="wikitable" style="text-align: center;"
+  ! Variables
+    ! Data Type
+    ! Default value(s)
+    |-
+    | <code>interval</code>
+    | Number
+    | <code>1500</code> (<small><code>750</code> for bots)</small>
+    |-
+    | <code>placement.element</code>
+    | String
+    | <code>"tools"</code>
+    |-
+    | <code>placement.type</code>
+    | String
+    | <code>"prepend"</code>
+    |-
+    |}
+
+    == General usage ==
+    In addition to the standard usage of the "prepend" and "append" options to
+    edit content of existing pages, these options may be used interchangeably to
+    create a set of new pages based on the inputted values of the pages text
+    area. Selecting either option and inputting page titles of nonexistent pages
+    creates these pages automatically, allowing for a quick and efficient means
+    of publishing new articles from a template or text extract.
+
+    Furthermore, though the find-and-replace function may be used as intended to
+    locate and replace wikitext, HTML, or plaintext from existing articles, it
+    may also be used to remove content from pages. Leaving the "New Content"
+    field blank is counted as an empty string, allowing for the removal of the
+    content of the "Target Content" field from the articles in question.
+
+    Users are also provided with the ability to edit/delete/replace content from
+    pages in a set of inputted categories. Selecting the "Categories" dropdown
+    option and including the names of the categories in the textarea edits all
+    extant pages currently in the category. (Note: Category titles may be
+        included as <tt>Category:Example Category</tt> or simply as <tt>Example
+        Category</tt>.)
+
+    In addition to the above category-based editing, users may also edit pages
+    belonging to certain legitimate namespaces, separating individual namespace
+    numbers (<tt>0</tt> for main namespace, <tt>4</tt> for Project namespace,
+        etc.) by line breaks, as per standard usage instructions.
+
+    Users may also use the listing generation functionality to collate listings
+    of pages transcluding selected templates. As with categories and namespaces,
+    multiple embedded templates may be included as input on separate lines, with
+    all duplicate entries making use of several input templates removed prior to
+    sorting and display.
+
+    == Changelog ==
+    ;04-10-21: UCP update 4; removal of legacy MW 1.19 code, reinstitution of
+    limited messaging functionality for UCP Message Walls
+    ;20-10-20: Patch to address Fandom-side API bug related to comment section
+    protection on UCP wikis
+    ;20-09-20: UCP update 3; bug fixes to <code>ModalButton</code>
+    enable/disable toggling, adjustments to modal assembly mechanism
+    ;26-08-20: UCP update 2: addition of [[Colors]] dependency, further updates
+    to make basic functionality available on UCP wikis
+    ;05-07-20: Improvements to dependency loader <code>init.load</code>, minor
+    bug fixes
+    ;01-07-20: Initial experiments in drafting extendable, UCP-friendly
+    dependency-loading framework, pending UCPification of Dev dependencies or
+    importation of legacy functionality like <code>importArticle(s)</code> and
+    ResourceLoader modules like <code>ext.wikia.LinkSuggest</code>
+    ;27-06-20: Organizational restructuring for enhanced readability,
+    improvements to module/dependency loading, addition of <code>exports</code>
+    object to <code>window.dev.massEdit</code> to expose public debugging
+    methods, minor bug fixes to user messaging functionality
+    ;18-06-20: Minor patching to handle ArticleComments extension edge cases,
+    addition of <code>TESTING</code> constant for testing API methods without
+    actually editing page content
+    ;28-05-20: Refactor of find-and-replace functionality to accept user-input
+    regex; refactor of scene-generation mechanism to lazy-initialize interfaces
+    only when needed; addition of <code>localStorage</code> caching for scenes
+    ;03-04-20: Addition of functionality to generate listings of template
+    transclusions via [[mw:API:Embeddedin|Embeddedin]]; addition of
+    functionality to remove duplicate entries from listings prior to
+    Quicksorting
+    ;08-10-19: Expansion using [[WgMessageWallsExist]] to offer mass-messaging
+    functionality; addition of category member page generation functionality per
+    [[MassNullEdit]]; modal redesign and code expansion/alterations
+    ;20-09-19: Addition of functionality to replace only specific occurrences of
+    a replacement target; addition of case sensitive/insensitive matching for
+    find-and-replace; minor code alterations
+    ;18-09-19: Minor rewrite using [[Placement]] and [[Modal]]; addition of
+    rudimentary pause/resume functionality, <code>query-continue</code> handling
+    for categories/namespaces containing over 5000 member pages, and jQuery
+    <code>linksuggest</code>.
+    ;24-05-18: Removal of static config-based edit summary in favor of
+    modal-based summary textbox; assorted cosmetic and improper input behavior
+    fixes
+    ;17-04-18: Addition of namespace-based editing/find-and-replace function
+    ;12-04-18: Addition of category-based editing/find-and-replace function
+    ;07-01-18: Addition of find-and-replace function for set of pages;
+    improved/expanded error handling for nonexistent pages, empty input fields,
+    and pages without target text; general cleanup
+    ;18-12-17: Retrofitting of [[I18n-js]], addition of "find-and-delete"
+    option, addition of config options, cleanup
+    ;06-02-17: Revision of regex, removal of character limit
+    ;05-02-17: Initial revision
+    </includeonly>
+

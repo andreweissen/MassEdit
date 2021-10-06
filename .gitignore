@@ -1,1 +1,20 @@
+# Local git repo
 /.git
+
+# Hidden directory for Py venv
+/.idea
+
+# Python venv directory
+/venv
+
+# Home directory Python cache folder
+/__pycache__
+
+# Dev directory Python cache folder
+/dev/__pycache__
+
+# Node modules
+/node_modules
+
+# Settings for Fandom and GitHub credentials
+/settings.ini
