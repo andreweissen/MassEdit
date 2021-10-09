@@ -1534,7 +1534,9 @@
         "logErrorMissingByline": "Ошибка: Заголовок сообщения не включен",
         "logErrorMissingBody": "Ошибка: Текст сообщения не включен",
         "logErrorNoUserData": "Ошибка: Невозможно получить данные пользователя для участника $1",
-        "buttonSubmit": "Отправить"
+        "buttonSubmit": "Отправить",
+        "logErrorNotAnEditor": "Ошибка: $1 никогда не правил на этой вики",
+        "logErrorInactiveEditor": "Ошибка: $1 не активен на этой вики"
     },
     "sr-ec": {
         "modalAction": "Изабери радњу",
