@@ -1763,7 +1763,9 @@
         "logErrorMissingByline": "Помилка: Заголовок повідомлення не включено",
         "logErrorMissingBody": "Помилка: не включено текст повідомлення",
         "logErrorNoUserData": "Помилка: неможливо отримати дані користувача для користувача $1",
-        "buttonSubmit": "Підтвердити"
+        "buttonSubmit": "Підтвердити",
+        "logErrorNotAnEditor": "Помилка: $1 ніколи не редагував у цій вікі",
+        "logErrorInactiveEditor": "Помилка: $ 1 не активний у цій вікі"
     },
     "val": {
         "modalAction": "Seleccionar acció",
