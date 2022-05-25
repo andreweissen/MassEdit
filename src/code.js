@@ -511,6 +511,7 @@
       configurable: false,
       value: Object.freeze({
         LS_KEY: "MassEdit-cache-scenes",
+        LS_PREFIX: "MassEdit-cache-scenes-",
         FIRST_SCENE: "REPLACE",
         DAYS_ACTIVE: 90,
         MAX_SUMMARY_CHARS: 800,
@@ -651,10 +652,10 @@
       value: Object.freeze([
         "wgFormattedNamespaces",
         "wgLegalTitleChars",
-        "wgLoadScript",
         "wgScriptPath",
         "wgServer",
         "wgUserGroups",
+        "wgUserLanguage",
         "wgVersion",
       ]),
     },
@@ -1092,16 +1093,19 @@
   main.queryStorage = function (paramSceneName, paramSceneData) {
 
     // Declarations
-    var isSetting, scenes;
+    var isSetting, lsKey, scenes;
 
     // Handler can be used for both getting and setting, so check for which
     isSetting = (Array.prototype.slice.call(arguments).length == 2 &&
       paramSceneData != null);
 
+    // Handle i18n for user language preference and uselang URL parameter
+    lsKey = this.Utility.LS_PREFIX + this.globals.wgUserLanguage;
+
     // Apply localStorage data to this.modal.scenes and local scenes variable
     try {
       scenes = this.modal.scenes =
-        JSON.parse(mw.storage.get(this.Utility.LS_KEY)) || {};
+        JSON.parse(mw.storage.get(lsKey)) || {};
     } catch (paramError) {
       if (this.flags.debug) {
         window.console.error(paramError);
@@ -1126,7 +1130,7 @@
 
       // Add to localStorage
       try {
-        mw.storage.set(this.Utility.LS_KEY, JSON.stringify(scenes));
+        mw.storage.set(lsKey, JSON.stringify(scenes));
       } catch (paramError) {}
 
       // Make sure new scenes are added to both localStorage and modal.scenes
@@ -1134,7 +1138,7 @@
         try {
           window.console.log("modal.scenes: ", this.modal.scenes);
           window.console.log("localStorage: ",
-            JSON.parse(window.localStorage.getItem(this.Utility.LS_KEY)));
+            JSON.parse(window.localStorage.getItem(lsKey)));
         } catch (paramError) {}
       }
     }
@@ -3875,8 +3879,18 @@
     exports = {};
     flags = Object.keys(this.Flags);
 
-    // I18n config for wiki's content language
-    this.i18n.useContentLang();
+    /*
+     * I18n config for user language
+     * Search Modal, QuickBar/Toolbar/WikiaBar, editing interface always display
+     * in user interface language by default, so it is recommended to use user
+     * language.
+     *
+     * Please note that it used to be set to wiki's site language, which caused
+     * several issues for language conversion
+     *
+     * See "languages with variants" in MediaWiki documentation.
+     */
+    this.i18n.useUserLang();
 
     // Initialize new modal property
     this.modal = {};
@@ -4296,13 +4310,13 @@
         }
 
         // Build url with REST params
-        server = "https://dev.fandom.com";
+        server = "https://dev.fandom.com/load.php";
         params = "?" + $.param({
           mode: "articles",
           only: current.TYPE + "s",
           articles: current.ARTICLE,
         });
-        resource = server + this.globals.wgLoadScript + params;
+        resource = server + params;
         moduleName = this.generateModuleName(current.TYPE, current.ARTICLE);
 
         // Ensure wellformed module name
