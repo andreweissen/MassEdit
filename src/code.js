@@ -2,7 +2,7 @@
  * <nowiki>
  * MassEdit
  * @file Essentially "bot software lite"; task automation and bulk editing tool
- * @author Eizen <dev.wikia.com/wiki/User_talk:Eizen>
+ * @author Eizen <dev.fandom.com/wiki/User_talk:Eizen>
  * @license CC-BY-SA 3.0
  * @external "mediawiki.user"
  * @external "mediawiki.util"
@@ -123,6 +123,7 @@
         ID_CONTENT_ADD: "massedit-content-add",
         ID_CONTENT_MESSAGE: "massedit-content-message",
         ID_CONTENT_LIST: "massedit-content-list",
+        ID_CONTENT_FIND: "massedit-content-find",
         ID_CONTENT_PREVIEW: "massedit-content-preview",
 
         ID_CONTENT_FORM: "massedit-content-form",
@@ -137,6 +138,7 @@
         ID_CONTENT_TYPE: "massedit-content-type",
         ID_CONTENT_CASE: "massedit-content-case",
         ID_CONTENT_MATCH: "massedit-content-match",
+        ID_CONTENT_FILTER: "massedit-content-filter",
         ID_CONTENT_LOG: "massedit-content-log",
         ID_CONTENT_BYLINE: "massedit-content-byline",
         ID_CONTENT_BODY: "massedit-content-body",
@@ -209,11 +211,9 @@
           "bot-global",
           "staff",
           "soap",
-          "helper",
-          "vanguard",
-          "wiki-representative",
           "wiki-specialist",
           "content-volunteer",
+          "global-edit-reviewer",
         ]),
         CAN_MESSAGE: Object.freeze([
           "global-discussions-moderator",
@@ -269,6 +269,9 @@
                 Object.freeze(["match",
                   Object.freeze(["plain", "regex"])
                 ]),
+                Object.freeze(["filter",
+                  Object.freeze(["all", "nonredirects", "redirects"])
+                ]),
               ])
             }),
             Object.freeze({
@@ -297,7 +300,10 @@
                 ]),
                 Object.freeze(["type",
                   Object.freeze(["pages", "categories", "namespaces"])
-                ])
+                ]),
+                Object.freeze(["filter",
+                  Object.freeze(["all", "nonredirects", "redirects"])
+                ]),
               ])
             }),
             Object.freeze({
@@ -337,12 +343,48 @@
               PARAMETER_ARRAYS: Object.freeze([
                 Object.freeze(["type",
                   Object.freeze(["categories", "namespaces", "templates"])
-                ])
+                ]),
+                Object.freeze(["filter",
+                  Object.freeze(["all", "nonredirects", "redirects"])
+                ]),
               ])
             }),
             Object.freeze({
               HANDLER: "assembleTextfield",
               PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["pages", "textarea"]),
+                Object.freeze(["members", "textarea"]),
+              ])
+            })
+          ]),
+        }),
+
+        // Find pages containing specific target text (5th scene)
+        FIND: Object.freeze({
+          NAME: "find",
+          POSITION: 4,
+          SCHEMA: Object.freeze([
+            Object.freeze({
+              HANDLER: "assembleDropdown",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["type",
+                  Object.freeze(["pages", "categories", "namespaces"])
+                ]),
+                Object.freeze(["case",
+                  Object.freeze(["sensitive", "insensitive"])
+                ]),
+                Object.freeze(["match",
+                  Object.freeze(["plain", "regex"])
+                ]),
+                Object.freeze(["filter",
+                  Object.freeze(["all", "nonredirects", "redirects"])
+                ]),
+              ])
+            }),
+            Object.freeze({
+              HANDLER: "assembleTextfield",
+              PARAMETER_ARRAYS: Object.freeze([
+                Object.freeze(["target", "textarea"]),
                 Object.freeze(["pages", "textarea"]),
                 Object.freeze(["members", "textarea"]),
               ])
@@ -683,7 +725,7 @@
         HOOK_NAME: "dev.massEdit",
         STD_INTERVAL: 1500,
         BOT_INTERVAL: 750,
-        CACHE_VERSION: 4,
+        CACHE_VERSION: 6,
       }),
     }
   });
@@ -794,6 +836,31 @@
     return paramParsedHTML.replace(
       /href="\/wiki/g,
       "href=\"" + this.globals.wgServer + this.globals.wgScriptPath + "/wiki"
+    );
+  };
+
+  /**
+   * @description This helper function was previously a part of
+   * <code>main.replaceOccurrences</code> and was moved to a separate, dedicated
+   * helper function due to its use in both the find-and-replace functionality
+   * and the search functionality. The function is now called within
+   * <code>main.handleSubmit</code> and its resultant <code>RegExp</code>
+   * object passed to <code>replaceOccurrences</code> as a parameter.
+   *
+   * @param {string} paramTarget - The target text be RegExpified
+   * @param {boolean} paramIsRegex - A flag denoting whether target is already
+                      regex
+   * @param {boolean} paramCaseSensitive - A flag denoting whether regex should
+                      be case sensitive or not
+   * @returns {object} - A new <code>RegExp</code> object
+   */
+  main.buildRegExp = function (paramTarget, paramIsRegex, paramCaseSensitive) {
+    return new RegExp((paramIsRegex)
+      ? paramTarget // Example formatting: ([A-Z])\w+
+      : paramTarget
+        .replace(/\r/gi, "")
+        .replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"),
+      ((paramCaseSensitive) ? "g" : "gi") + "m"
     );
   };
 
@@ -1020,31 +1087,28 @@
    * invoked as many times as needed while still making use of preserved closure
    * variables housed in heap memory after the main function's frame is popped
    * off the stack.
+   * <br />
+   * <br />
+   * Further modifications to the function made with the addition of dedicated
+   * target search functionality saw the removal of the function's former
+   * <code>RegExp</code> assembler to a separate function titled
+   * <code>main.buildRegExp</code>. The result of that function is now passed to
+   * this function by <code>main.handleSubmit</code> as the first parameter.
    *
-   * @param {boolean} paramIsCaseSensitive - If case sensitivity is desired
-   * @param {boolean} paramIsUserRegex - If user has input own regex
-   * @param {string} paramTarget - Text to be replaced
+   * @param {object} paramRegExp - <code>RegExp</code> object constituting
+                     target to be replaced
    * @param {string} paramReplacement - Text to be inserted
    * @param {Array<number>} paramInstances - Indices at which to replace text
    * @returns {function} - A closure function to be invoked separately
    */
-  main.replaceOccurrences = function (paramIsCaseSensitive, paramIsUserRegex,
-      paramTarget, paramReplacement, paramInstances) {
+  main.replaceOccurrences = function (paramRegExp, paramReplacement,
+      paramInstances) {
 
     // Declarations
-    var regex, replacement, counter;
+    var replacement, counter;
 
     // Sanitize input param
     paramInstances = (paramInstances != null) ? paramInstances : [];
-
-    // First parameter of the String.prototype.replace invocation
-    regex = new RegExp((paramIsUserRegex)
-      ? paramTarget // Example formatting: ([A-Z])\w+
-      : paramTarget
-        .replace(/\r/gi, "")
-        .replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"),
-      ((paramIsCaseSensitive) ? "g" : "gi") + "m"
-    );
 
     // Second parameter of the String.prototype.replace invocation
     replacement = (!paramInstances.length)
@@ -1060,14 +1124,14 @@
 
       // Log regex and intended replacement
       if (this.flags.debug) {
-        window.console.log(regex, replacement);
+        window.console.log(paramRegExp, replacement);
       }
 
       // Init counter in case of replace function
       counter = 0;
 
       // Replace using regex and either paramReplacement or anon function
-      return paramString.replace(regex, replacement);
+      return paramString.replace(paramRegExp, replacement);
     }.bind(this);
   };
 
@@ -1695,13 +1759,17 @@
    * than helper functions like this and <code>getMemberPages</code>.
    *
    * @param {Array<string>} paramEntries - Array of pages/cats/ns
-   * @param {string} paramType - categories, templates, namespaces, recipients
+   * @param {object} paramParameters - obj w/ type prop that may be categories,
+   *                                   templates, namespaces, recipients
    * @returns {object} $deferred - Promise returned for use w/ <code>then</code>
    */
-  main.getValidatedEntries = function (paramEntries, paramType) {
+  main.getValidatedEntries = function (paramEntries, paramParameters) {
 
     // Declarations
-    var i, n, entry, results, $deferred, prefix;
+    var i, n, type, entry, results, $deferred, prefix;
+
+    // Alias
+    type = paramParameters.type;
 
     // Returnable array of valid pages
     results = [];
@@ -1714,7 +1782,7 @@
       categories: 14,
       namespaces: 0,
       templates: 10,
-    }[paramType]] || "";
+    }[type]] || "";
 
     for (i = 0, n = paramEntries.length; i < n; i++) {
 
@@ -1722,7 +1790,7 @@
       entry = this.capitalize(paramEntries[i].trim());
 
       if (
-        paramType === "recipients" &&
+        type === "recipients" &&
         this.startsWith(entry, this.globals.wgFormattedNamespaces[2])
       ) {
         entry = entry.split(this.globals.wgFormattedNamespaces[2] + ":")[1];
@@ -1735,8 +1803,8 @@
 
       // If legal page/category name, push into names array
       if (
-        (paramType !== "namespaces" && this.isLegalInput(entry)) ||
-        (paramType === "namespaces" && this.isInteger(entry))
+        (type !== "namespaces" && this.isLegalInput(entry)) ||
+        (type === "namespaces" && this.isInteger(entry))
       ) {
         results.push(entry);
       } else {
@@ -1822,7 +1890,9 @@
     entries = [];
 
     // Get wellformed, formatted usernames
-    $getUsers = this.getValidatedEntries(paramEntries, "recipients");
+    $getUsers = this.getValidatedEntries(paramEntries, {
+      type: "recipients"
+    });
 
     /**
      * @description Upon the acquisition of validated usernames containing only
@@ -1996,14 +2066,19 @@
    * API queries.
    *
    * @param {Array<string>} paramEntries - Array of user input pages
-   * @param {string} paramType - <code>string</code> denoting cat, ns, or tl
+   * @param {object} paramParameters - type (cat, ns, or tl) and/or filter
+   *                                   (all, nonredirect, redirects)
    * @returns {object} $returnPages - $.Deferred promise object
    */
-  main.getMemberPages = function (paramEntries, paramType) {
+  main.getMemberPages = function (paramEntries, paramParameters) {
 
     // Declarations
-    var i, n, names, data, entries, parameters, counter, config, $getPages,
-      $addPages, $getEntries, $returnPages;
+    var i, n, type, filter, names, data, entries, parameters, counter, config,
+      $getPages, $addPages, $getEntries, $returnPages;
+
+    // Aliases for param properties
+    type = paramParameters.type;
+    filter = paramParameters.filter;
 
     // New pending Deferred objects
     $returnPages = new $.Deferred();
@@ -2038,10 +2113,10 @@
         continuer: "eicontinue",
         target: "eititle",
       },
-    }[paramType];
+    }[type];
 
     // Get wellformed, formatted namespace numbers, category names, or templates
-    $getEntries = this.getValidatedEntries(paramEntries, paramType);
+    $getEntries = this.getValidatedEntries(paramEntries, paramParameters);
 
     // Once acquired, apply to names array or pass along rejection message
     $getEntries.then(function (paramResults) {
@@ -2069,8 +2144,13 @@
       // Set parameter target page
       parameters[config.target] = names[counter];
 
+      // For namespaces, include filter value
+      if (type === "namespaces" && filter != null) {
+        parameters.apfilterredir = filter;
+      }
+
       // Fetching member pages of $1 or Fetching transclusions of $1
-      $returnPages.notify((paramType === "templates")
+      $returnPages.notify((type === "templates")
         ? "logStatusFetchingTransclusions"
         : "logStatusFetchingMembers", names[counter]);
 
@@ -2111,7 +2191,18 @@
 
       // If page doesn't exist, add log entry and continue to next iteration
       if (data == null || data.length === 0) {
-        $returnPages.notify("logErrorNoSuchPage", names[counter++]);
+
+        /*
+         * NOTE: Data array returned may be empty if no pages matching filter
+         * target are found in that batch of pages.
+         *
+         * <code>data.query.allpages</code> will be an empty array if user is
+         * looking for redirects and none exist in current batch of pages, for
+         * example.
+         */
+
+        // "Error: No matching member pages found in current batch for $1"
+        $returnPages.notify("logErrorNoPagesInBatch", names[counter++]);
         return this.timer.iterate();
       }
 
@@ -3100,6 +3191,17 @@
    * operation that exits early and does not iterate is the listing operation,
    * which merely acquires lists of category members and prepends them to an
    * element.
+   * <br />
+   * <br />
+   * In edit to the last sentence of the previous paragraph, the most recent
+   * update to the function added a find feature that like the find-and-replace
+   * functionality iterates over a list of pages in search for a specific target
+   * <code>string</code>. However, like the listing functionality, the find
+   * feature exits early and does not edit the pages it collates and peruses,
+   * making it safe for any user to access regardless of user rights. There are
+   * likely more efficient and better optimized ways than that employed to bring
+   * this feature to life, but at present, the use of regex is sufficient to
+   * provide the desired search and locate feature.
    *
    * @returns {void}
    */
@@ -3112,12 +3214,13 @@
     }
 
     // Declarations
-    var $action, $type, $case, $match, $content, $target, $indices, indices,
-      $pages, pages, $byline, $summary, counter, config, data, pageIndex,
-      newText, $getPages, $postPages, $getNextPage, $getPageContent,
+    var $action, $type, $case, $match, $filter, $content, $target, $indices,
+      indices, $pages, pages, results, $byline, $summary, counter, config, data,
+      pageIndex, newText, $getPages, $postPages, $getNextPage, $getPageContent,
       $postPageContent, error, $scene, isCaseSensitive, isUserRegex, isReplace,
-      isAddition, isMessaging, isListing, $members, $selected, $body, pagesType,
-      replaceOccurrences, isWikitextParsed;
+      isAddition, isMessaging, isListing, isFinding, $members, $selected, $body,
+      pagesType, replaceOccurrences, newRegExp, timerInterval, getterParameters,
+      isWikitextParsed;
 
     // Dropdowns
     $scene = $("#" + this.Selectors.ID_CONTENT_SCENE)[0];
@@ -3125,6 +3228,7 @@
     $type = $("#" + this.Selectors.ID_CONTENT_TYPE)[0];
     $case = $("#" + this.Selectors.ID_CONTENT_CASE)[0];
     $match = $("#" + this.Selectors.ID_CONTENT_MATCH)[0];
+    $filter = $("#" + this.Selectors.ID_CONTENT_FILTER)[0];
 
     // Textareas/inputs
     $target = $("#" + this.Selectors.ID_CONTENT_TARGET).val();
@@ -3152,6 +3256,8 @@
       ($scene.value === "message" && $scene.selectedIndex === 2);
     isListing =
       ($scene.value === "list" && $scene.selectedIndex === 3);
+    isFinding =
+      ($scene.value === "find" && $scene.selectedIndex === 4);
 
     // Substitute for $1 in logErrorNoPages
     pagesType = ((isMessaging)
@@ -3159,11 +3265,11 @@
       : $selected.text()).toLowerCase();
 
     // If no scene selected (should not happen)
-    if (!isReplace && !isAddition && !isMessaging && !isListing) {
+    if (!isReplace && !isAddition && !isMessaging && !isListing && !isFinding) {
       return;
 
     // Is not in the proper rights group
-    } else if (!isListing && !this.hasRights(isMessaging)) {
+    } else if (!isListing && !isFinding && !this.hasRights(isMessaging)) {
       this.resetModal("logErrorUserRights");
       return;
 
@@ -3172,8 +3278,8 @@
       this.addModalLogEntry("logErrorNoContent");
       return;
 
-    // Is find-and-replace with no target content included
-    } else if (isReplace && !$target) {
+    // Is find-and-replace or search with no target content included
+    } else if ((isReplace || isFinding) && !$target) {
       this.addModalLogEntry("logErrorNoTarget");
       return;
 
@@ -3208,7 +3314,22 @@
     );
     this.toggleModalComponentsDisable("partial", true);
 
-    // Find-and-replace specific variable definitions
+    // Find and find-and-replace-specific variable definitions
+    if (isReplace || isFinding) {
+
+      // Whether not search and replace is case sensitive
+      isCaseSensitive = ($case.selectedIndex === 0 &&
+        $case.value === "sensitive");
+
+      // Whether user has input regex for finding & replacing
+      isUserRegex = ($match.selectedIndex === 1 &&
+        $match.value === "regex");
+
+      // Build new RegExp object from target text
+      newRegExp = this.buildRegExp($target, isUserRegex, isCaseSensitive);
+    }
+
+    // Find-and-replace specific variable definition
     if (isReplace) {
 
       // Only wellformed integers should be included as f-n-r indices
@@ -3220,17 +3341,19 @@
         return paramEntry != null; // Avoid cases of [undefined]
       });
 
-      // Whether not search and replace is case sensitive
-      isCaseSensitive = ($case.selectedIndex === 0 &&
-        $case.value === "sensitive");
-
-      // Whether user has input regex for finding & replacing
-      isUserRegex = ($match.selectedIndex === 1 &&
-        $match.value === "regex");
-
       // Define regex, etc. only once per submission operation using closure
-      replaceOccurrences = this.replaceOccurrences(isCaseSensitive,
-        isUserRegex, $target, $content, indices);
+      try {
+        replaceOccurrences =
+          this.replaceOccurrences(newRegExp, $content, indices);
+      } catch (paramError) {
+        // Catch malformed regex in target field
+        this.resetModal("logErrorSecurity");
+
+        if (this.flags.debug) {
+          window.console.error(paramError);
+        }
+        return;
+      }
 
       // Check closure scope's variables under [[Scopes]]
       if (this.flags.debug) {
@@ -3248,6 +3371,16 @@
 
     // Default page editing parameters
     config = {};
+
+    // Interval for this.timer
+    /*
+     * Note: No apparent rate limit for an operation composed solely of GET
+     * requests. Tested find functionality in a program test run that submitted
+     * over 20,000 GET requests over a span of several hours with the timer
+     * interval set to 0. No throttling was observed, so I guess it's fine?
+     * Investigate further at some point.
+     */
+    timerInterval = (isFinding) ? 0 : this.config.interval;
 
     // New pending status Deferreds
     $postPages = new $.Deferred();
@@ -3288,6 +3421,12 @@
             this.flags.hasMessageWalls = paramHasWalls;
           }
 
+          getterParameters = {};
+          if (!isMessaging) {
+            getterParameters.type = ($type != null) ? $type.value : null;
+            getterParameters.filter = ($filter != null) ? $filter.value : null;
+          }
+
           // Get list of wellformed pages/usernames or member pages
           return this[
             (isListing || (!isMessaging && $type.value !== "pages"))
@@ -3295,7 +3434,7 @@
               : (isMessaging)
                 ? "getActiveUsersData"
                 : "getValidatedEntries"
-          ](pages, ($type != null) ? $type.value : null);
+          ](pages, getterParameters);
         }.bind(this)
       ).then(
         $paramOuter.resolve.bind($), // $getPages.done
@@ -3334,13 +3473,33 @@
         return;
       }
 
+      // When finding, create array for pages with target text in content
+      if (isFinding) {
+        results = [];
+
+        this.addModalLogEntry("logStatusGenerating");
+      }
+
       // Iterate over pages
       this.timer = this.setDynamicTimeout(function () {
         if (counter === pages.length) {
           $getNextPage.resolve();
-          $postPages.resolve("logSuccessEditingComplete");
+
+          if (isFinding) {
+            results = this.sort(results);
+
+            if (this.flags.debug) {
+              window.console.log("results: ", results);
+            }
+
+            $members.text(results.join("\n"));
+          }
+
+          $postPages.resolve((isFinding)
+            ? "logSuccessListingComplete"
+            : "logSuccessEditingComplete");
         } else {
-          $getPageContent = (isReplace || isAddition)
+          $getPageContent = (!isMessaging)
             ? this.getPageContent(pages[counter])
             : (isMessaging && this.flags.hasMessageWalls && !isWikitextParsed)
               ? this.getParsedWikitextContent($body)
@@ -3349,7 +3508,7 @@
           // Grab data, extend parameters, then edit the page
           $getPageContent.always($postPages.notify);
         }
-      }.bind(this), this.config.interval);
+      }.bind(this), timerInterval);
     }.bind(this));
 
     /**
@@ -3389,6 +3548,17 @@
      * <code>$postPageContent</code> pings the pending <code>$getNextPage</code>
      * <code>$.Deferred</code> to log the relevant messages and iterate on to
      * the next page to be edited.
+     * <br />
+     * <br />
+     * This handler is also home to the core functionality of the find feature.
+     * It doesn't really fit here, given that this function is supposed to just
+     * assemble parameters for the various POST request functions, but I can't
+     * really see where else it should go. The contents of each page are tested
+     * against the assembled <code>RegExp</code> object (optimize approach,
+     * perhaps?) and added to a <code>results</code> array if a match is found.
+     * Program flow ends there. The <code>$getNextPage</code>
+     * <code>$.Deferred</code> is never pinged as it is with the other options,
+     * as no posting or editing is done by the find feature.
      */
     $postPages.progress(function (paramResults) {
       if (this.flags.debug) {
@@ -3396,7 +3566,7 @@
       }
 
       // Reduce some code repetition via consolidation of shared code
-      if (isAddition || isReplace) {
+      if (!isMessaging) {
 
         // Make sure returned results have a "query" property
         if (
@@ -3407,7 +3577,13 @@
           return this.timer.iterate();
         }
 
-        // Default config parameters
+        // Definitions
+        pageIndex = Object.keys(paramResults.query.pages)[0];
+        data = paramResults.query.pages[pageIndex];
+      }
+
+      // Set default posting config (unneeded when searching or messaging)
+      if (isReplace || isAddition) {
         config = {
           handler: "postPageContent",
           parameters: {
@@ -3416,22 +3592,19 @@
             summary: $summary,
           }
         };
-
-        // Definitions
-        pageIndex = Object.keys(paramResults.query.pages)[0];
-        data = paramResults.query.pages[pageIndex];
       }
 
-      // Addition-specific parameters
+      // Addition-specific parameter
       if (isAddition) {
 
         // "appendtext" or "prependtext"
         if (!this.flags.testing) {
           config.parameters[$action.value.toLowerCase() + "text"] = $content;
         }
+      }
 
-      // Find-and-replace parameters
-      } else if (isReplace) {
+      // Find and find-and-replace-specific error checks
+      if (isReplace || isFinding) {
 
         // Shim to handle ArticleComments that do not have revision history
         if (
@@ -3447,6 +3620,22 @@
           this.addModalLogEntry("logErrorNoSuchPage", pages[counter++]);
           return this.timer.iterate();
         }
+      }
+
+      // Find-specific check (program flow ends here for finding functionality)
+      if (isFinding) {
+
+        // If target text is located in current page, add to list and iterate
+        if (newRegExp.test(data.revisions[0]["*"])) {
+          results.push(pages[counter]);
+        }
+
+        counter++;
+        return this.timer.iterate();
+      }
+
+      // Find-and-replace parameters
+      if (isReplace) {
 
         // isReplace-specific parameter
         config.parameters.text = data.revisions[0]["*"];
@@ -3464,9 +3653,10 @@
             config.parameters.text = newText;
           }
         }
+      }
 
       // Messaging parameters
-      } else if (isMessaging) {
+      if (isMessaging) {
         if (
           paramResults.parse != null &&
           paramResults.hasOwnProperty("parse") &&
