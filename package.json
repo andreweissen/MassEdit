@@ -25,13 +25,13 @@
   },
   "homepage": "https://github.com/andreweissen/MassEdit#readme",
   "dependencies": {
-    "markdown-it": "^12.3.2",
-    "marked": "^4.0.14",
+    "markdown-it": "^15.0.3",
+    "marked": "^4.3.0",
     "python": "0.0.4",
-    "shelljs": "^0.8.5"
+    "shelljs": "^0.10.0"
   },
   "devDependencies": {
-    "jsdoc": "^4.0.4",
-    "jshint": "^2.13.4"
+    "jsdoc": "^4.0.5",
+    "jshint": "^0.5.9"
   }
 }
